@@ -1,0 +1,19 @@
+{
+  "name": "zech-core",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/So-chiru/zechCore",
+  "author": "So-chiru",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/core": "^7.8.7",
+    "@babel/preset-env": "^7.8.7",
+    "babel-loader": "^8.0.6",
+    "babel-polyfill": "^6.26.0",
+    "html-webpack-plugin": "^3.2.0",
+    "pug": "^2.0.4",
+    "pug-loader": "^2.4.0",
+    "uglifyjs-webpack-plugin": "^2.2.0",
+    "webpack": "^4.42.0"
+  }
+}
