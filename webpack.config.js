@@ -1,6 +1,6 @@
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+const TerserPlugin = require('terser-webpack-plugin')
 
 const dev = process.env.NODE_ENV !== 'production'
 
@@ -11,9 +11,6 @@ module.exports = {
   },
   output: {
     path: path.resolve(__dirname, '../proxy', 'statics')
-  },
-  optimization: {
-    minimizer: []
   },
   module: {
     rules: [
@@ -29,7 +26,7 @@ module.exports = {
       },
       {
         exclude: /\.js|\.ts|\.woff2/,
-        test: /\.(sa|sc|c)ss$/,
+        test: /\.(sa|sc|c)ss$/
       },
       {
         test: /\.pug$/,
@@ -37,20 +34,27 @@ module.exports = {
       }
     ]
   },
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        test: /\.js(\?.*)?$/i,
+        terserOptions: {
+          mangle: true,
+          beautify: false,
+          comments: false,
+          output: {
+            comments: false
+          }
+        },
+        extractComments: false
+      })
+    ]
+  },
   plugins: [
     new HtmlWebpackPlugin({
       template: './src/views/index.pug',
       filename: 'index.html'
-    }),
-    new UglifyJsPlugin({
-      uglifyOptions: {
-        mangle: true,
-        beautify: false,
-        comments: false,
-        output: {
-          comments: false
-        }
-      }
     })
   ],
   resolve: {
