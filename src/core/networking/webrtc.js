@@ -1,6 +1,7 @@
 let clientLists = []
 
 const uuid = require('../utils/uuid')
+const log = require('../utils/logs')
 const eventBus = require('../utils/eventBus')
 
 class RTCClient {
@@ -38,10 +39,17 @@ class RTCClient {
   }
 
   createDataChannel (name) {
-    let channel = this.client.createDataChannel(name)
+    let channel = this.client.createDataChannel(name, {
+      negotiated: true,
+      id: 0
+    })
 
-    channel.onopen = (ev) => {
-      console.log('OPENNED!!!! OPEENED! GUYS!!!')
+    channel.onopen = ev => {
+      log(`Data channel '${channel.label}' opened.`)
+    }
+
+    channel.onmessage = ev => {
+      log(`Got message through the data channel ${channel.label}.`, ev)
     }
   }
 

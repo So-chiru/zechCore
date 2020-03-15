@@ -28,11 +28,7 @@ signalClient.on('open', async ev => {
       signalClient.sendOffer(offerText, toPeer, rtcClient.id)
 
       rtcClient.events.on('ice', iceData => {
-        signalClient.sendICE(
-          iceData,
-          toPeer,
-          rtcClient.id
-        )
+        signalClient.sendICE(iceData, toPeer, rtcClient.id)
       })
     }
   )
@@ -56,16 +52,8 @@ signalClient.on('open', async ev => {
     })
 
     rtcClient.events.on('ice', iceData => {
-      signalClient.sendICE(
-        iceData,
-        data.from,
-        rtcClient.id
-      )
+      signalClient.sendICE(iceData, data.from, rtcClient.id)
     })
-
-    // if (data.candidate) {
-    //   rtcClient.addIceCandidate(new RTCIceCandidate(data.candidate))
-    // }
 
     log(`Got an offer data from ${data.from_peer}`, data)
   })
@@ -94,3 +82,15 @@ signalClient.on('open', async ev => {
     origin.addIceCandidate(data.candidate)
   })
 })
+;(() => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .register('/zechworker.js', {
+        scope: '/'
+      })
+      .then(registration => {
+        log(`zechCore ServiceWorker Registered.`)
+        console.log(registration)
+      })
+  }
+})()
