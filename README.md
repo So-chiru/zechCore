@@ -1,2 +1,2 @@
 # zechCore
-A peer-to-peer Live Streaming framework using WebRTC.
+zechCore is A peer-to-peer Live Streaming framework using WebRTC.

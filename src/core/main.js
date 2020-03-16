@@ -4,6 +4,12 @@ const SignalSocket = require('./networking/signalsocket')
 const RTCManager = require('./networking/webrtc')
 const log = require('./utils/logs')
 
+if (DEBUG) {
+  log('warn', `Debug mode has been activated. Do not use in production.`)
+}
+
+log(`zechCore v${VERSION}.`)
+
 let signalClient = new SignalSocket()
 
 signalClient.on('open', async ev => {
@@ -55,7 +61,7 @@ signalClient.on('open', async ev => {
       signalClient.sendICE(iceData, data.from, rtcClient.id)
     })
 
-    log(`Got an offer data from ${data.from_peer}`, data)
+    log('debug', `Got an offer data from ${data.from_peer}`, data)
   })
 
   signalClient.on(NETWORKING.answerPeerOffer, data => {
@@ -68,7 +74,7 @@ signalClient.on('open', async ev => {
 
     origin.setRemoteDescription(data.answer)
 
-    log(`Got an answer data from ${data.answer_peer}`, data)
+    log('debug', `Got an answer data from ${data.answer_peer}`, data)
   })
 
   signalClient.on(NETWORKING.iceTransport, data => {
@@ -76,10 +82,14 @@ signalClient.on('open', async ev => {
       return false
     }
 
-    log(`Got a ICE data from opposite peer ${data.from_peer}`, data)
+    log('debug', `Got a ICE data from opposite peer ${data.from_peer}`, data)
 
     let origin = RTCManager.findClientOpposite(data.from_peer)
     origin.addIceCandidate(data.candidate)
+  })
+
+  signalClient.on('open', () => {
+    log(`Peer ${this.oppositeId} connected.`)
   })
 })
 ;(() => {
@@ -89,7 +99,7 @@ signalClient.on('open', async ev => {
         scope: '/'
       })
       .then(registration => {
-        log(`zechCore ServiceWorker Registered.`)
+        log('debug', `zechCore ServiceWorker Registered.`)
         console.log(registration)
       })
   }

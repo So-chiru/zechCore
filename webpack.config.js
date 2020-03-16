@@ -1,4 +1,5 @@
 const path = require('path')
+const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const TerserPlugin = require('terser-webpack-plugin')
 
@@ -53,6 +54,10 @@ module.exports = {
     ]
   },
   plugins: [
+    new webpack.DefinePlugin({
+      DEBUG: JSON.stringify(dev),
+      VERSION: JSON.stringify(require('./package.json').version),
+    }),
     new HtmlWebpackPlugin({
       template: './src/views/index.pug',
       filename: 'index.html',
