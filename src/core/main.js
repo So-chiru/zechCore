@@ -12,7 +12,7 @@ log(`zechCore v${VERSION}.`)
 
 let signalClient = new SignalSocket()
 
-signalClient.on('open', async ev => {
+signalClient.on('open', async _ => {
   signalClient.uuid = await signalClient.GetUUID()
 
   log(`Got UUID from the server: ${signalClient.uuid}`)
@@ -26,6 +26,8 @@ signalClient.on('open', async ev => {
 
       // FIXME : Test code
       let toPeer = data[0]
+
+      signalClient.requestMetadata('10f70afe44089b7e7ff5b7477da0f5e0d46e5de558a30b8e6a78226f42600b3d')
 
       if (!toPeer) return
 
@@ -69,7 +71,7 @@ signalClient.on('open', async ev => {
       return false
     }
 
-    let origin = RTCManager.findClient(data.from_peer)
+    let origin = RTCManager.find(data.from_peer)
     origin.registerOppositePeer(data.answer_peer)
 
     origin.setRemoteDescription(data.answer)
@@ -84,7 +86,7 @@ signalClient.on('open', async ev => {
 
     log('debug', `Got a ICE data from opposite peer ${data.from_peer}`, data)
 
-    let origin = RTCManager.findClientOpposite(data.from_peer)
+    let origin = RTCManager.findOpposite(data.from_peer)
     origin.addIceCandidate(data.candidate)
   })
 
@@ -92,15 +94,25 @@ signalClient.on('open', async ev => {
     log(`Peer ${this.oppositeId} connected.`)
   })
 })
+  
 ;(() => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('/zechworker.js', {
-        scope: '/'
       })
       .then(registration => {
         log('debug', `zechCore ServiceWorker Registered.`)
         console.log(registration)
       })
   }
+
+  setInterval(() => {
+    document.querySelector(
+      '.zech-clients'
+    ).innerHTML = RTCManager.clients().length
+  }, 1000)
 })()
+
+window.zechCore = {
+  signalClient
+}

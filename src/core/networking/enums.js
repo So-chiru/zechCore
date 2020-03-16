@@ -6,11 +6,10 @@ module.exports = {
   BLOCK: 0x31,
   GetPeerLists: 0xB0, // Signal Command
   GetUUID: 0xA0,
+  RequestMetadata: 0xA1,
   createPeerOffer: 0xC1,
   answerPeerOffer: 0xC2,
   iceTransport: 0xC3,
-  RTCRequestMetadata: 0xD0, // RTC Command
-  RTCAnswerMetadata: 0xD1,
-  RTCRequestBlock: 0xD2,
-  RTCAnswerBlock: 0xD3,
+  RTCRequestBlock: 0xD0, // RTC Command
+  RTCAnswerBlock: 0xD1,
 }

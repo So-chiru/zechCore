@@ -3,11 +3,10 @@ let clientLists = []
 const NETWORKING = require('./enums')
 const uuid = require('../utils/uuid')
 const log = require('../utils/logs')
-const serialize = require('../utils/serialize')
+const buffer = require('../utils/buffer')
 const eventBus = require('../utils/eventBus')
 
 const block = require('../fs/block')
-
 class RTCClient {
   constructor () {
     this.createClient()
@@ -73,7 +72,7 @@ class RTCClient {
         data = buf
       }
 
-      let commandBuf = serialize.makeBytes(1, NETWORKING.DATA)
+      let commandBuf = buffer.makeBytes(1, NETWORKING.DATA)
 
       let final = new Uint8Array(commandBuf.byteLength + data.byteLength)
       final.set(new Uint8Array(commandBuf), 0)
@@ -88,7 +87,7 @@ class RTCClient {
         return
       }
 
-      channel.send(serialize.makeBytes(1, command))
+      channel.send(buffer.makeBytes(1, command))
     }
 
     this.ping = () => {
@@ -163,7 +162,7 @@ class RTCClient {
     })
 
     this.channelEvent.on('close', ev => {
-      // on close
+      remove(this.id)
     })
 
     this.channelEvent.on('command', (command, data) => {
@@ -209,32 +208,91 @@ class RTCClient {
   }
 }
 
-const findClient = id => {
+/**
+ * call cb with argument as clients.
+ *
+ * @param {*} cb Callback
+ *
+ * @returns Return null if clients size is 0.
+ */
+const all = cb => {
+  let len = clientLists.length
+
+  if (!len) {
+    return null
+  }
+
+  for (var i = 0; i < len; i++) {
+    cb(clientLists[i])
+  }
+}
+
+/**
+ * Find a client that id is 'id'.
+ * @param {String} id Client ID
+ */
+const find = id => {
   let len = clientLists.length
 
   for (var i = 0; i < len; i++) {
     let client = clientLists[i]
 
-    if (client.id === id) return client
+    if (client && client.id === id) return client
   }
 
   return null
 }
 
-const findClientOpposite = id => {
+/**
+ * Find a client that opposite side's id is 'id'.
+ * @param {String} id Opposite client ID
+ */
+const findOpposite = id => {
   let len = clientLists.length
 
   for (var i = 0; i < len; i++) {
     let client = clientLists[i]
 
-    if (client.oppositeId === id) return client
+    if (client && client.oppositeId === id) return client
   }
 
   return null
+}
+
+/**
+ * Remove client from list.
+ */
+const remove = id => {
+  let len = clientLists.length
+
+  for (var i = 0; i < len; i++) {
+    let client = clientLists[i]
+
+    if (client && client.id === id) {
+      client.close()
+      delete clientLists[i]
+    }
+  }
+
+  clientLists = clientLists.filter(e => e != null)
+
+  console.log(clientLists)
+
+  return null
+}
+
+/**
+ * Return all clients.
+ */
+const clients = () => {
+  return clientLists
 }
 
 module.exports = {
   RTCClient,
-  findClient,
-  findClientOpposite
+  clients,
+  all,
+  find,
+  findOpposite,
+  remove
 }

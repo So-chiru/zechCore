@@ -1,17 +1,5 @@
 const NETWORKING = require('./enums')
-
-/**
- * 
-
- */
-const makeBytes = (len, num) => {
-  let b = new ArrayBuffer(len)
-  let uint8 = new Uint8Array(b)
-
-  uint8[len - 1] = num
-
-  return b
-}
+const buffer = require('../utils/buffer')
 
 const makeCommand = (cmd, data) => {
   return JSON.stringify([cmd, data])
@@ -99,7 +87,7 @@ class SignalClient {
    * Send a ping to server.
    */
   ping () {
-    this.ws.send(makeBytes(1, NETWORKING.PING))
+    this.ws.send(buffer.makeBytes(1, NETWORKING.PING))
   }
 
   /**
@@ -121,11 +109,27 @@ class SignalClient {
    * Send a binary to server.
    *
    * @param {Number} ev NETWORKING Enum.
-   * @param {*} data Data to send.
    * @param {Function} cb Callback (optional)
    */
   sendBinary (ev, cb) {
-    this.ws.send(makeBytes(1, ev))
+    this.ws.send(buffer.makeBytes(1, ev))
+
+    if (typeof cb === 'function') {
+      this.on(ev, cb)
+    }
+  }
+
+  /**
+   * Send a binary data to server.
+   *
+   * @param {Number} ev NETWORKING Enum.
+   * @param {ArrayBuffer} data Data to send.
+   * @param {Function} cb Callback (optional)
+   */
+  sendBinaryData (ev, data, cb) {
+    let concat = buffer.concatBuffer(buffer.makeBytes(1, ev), data)
+
+    this.ws.send(concat)
 
     if (typeof cb === 'function') {
       this.on(ev, cb)
@@ -175,6 +179,22 @@ class SignalClient {
       candidate: data,
       to: uuid,
       from_peer: id
+    })
+  }
+
+  requestMetadata (id) {
+    if (typeof id !== 'string' && id.length !== 64) {
+      throw new Error(`Not valid sha3 id.`)
+    }
+
+    return new Promise((resolve, reject) => {
+      this.sendBinaryData(
+        NETWORKING.RequestMetadata,
+        buffer.stringHexConvert(id),
+        data => {
+          resolve(data)
+        }
+      )
     })
   }
 }
