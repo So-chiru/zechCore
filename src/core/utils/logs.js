@@ -12,7 +12,7 @@ module.exports = (...inputs) => {
       inputs[0] = '[WARNING]'
       mode = 'warn'
       break
-    case 'err':
+    case 'error':
       inputs[0] = '[ERROR]'
       mode = 'error'
       break

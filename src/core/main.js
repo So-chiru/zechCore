@@ -87,14 +87,14 @@ signalClient.on('open', async _ => {
   signalClient.on(NETWORKING.iceTransport, data => {
     data = buffer.BSONtoObject(data)
 
-    if (!data.candidate || !data.fp) {
+    if (!data.c || !data.fp) {
       return false
     }
 
     log('debug', `Got a ICE data from opposite peer ${data.fp}`, data)
 
     let origin = RTCManager.findOpposite(data.fp)
-    origin.addIceCandidate(data.candidate)
+    origin.addIceCandidate(data.c)
   })
 
   signalClient.on(NETWORKING.NoMetadata, () => {
@@ -116,6 +116,10 @@ sw.workerEvent.on('message', data => {
     document.querySelector(
       '.zech-clients'
     ).innerHTML = RTCManager.clients().length
+
+    document.querySelector(
+      '.zech-clients-connected'
+    ).innerHTML = RTCManager.clientsConnected().length
   }, 1000)
 })()
 

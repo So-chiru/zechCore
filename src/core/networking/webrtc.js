@@ -20,6 +20,14 @@ class RTCClient {
 
     this.addChannelEventListener()
 
+    this.__reset = setTimeout(() => {
+      if (this.client.connectionState !== 'connected') {
+        this.close()
+
+        log('error', `client ${this.id} timeout.`)
+      }
+    }, 5000)
+
     clientLists.push(this)
   }
 
@@ -97,6 +105,8 @@ class RTCClient {
     channel.onopen = ev => {
       log(`Peer ${this.id}, data channel opened.`)
       this.channelEvent.emit('open', ev)
+
+      clearTimeout(this.__reset)
 
       this.ping()
 
@@ -223,6 +233,29 @@ const all = cb => {
 }
 
 /**
+ * call cb with argument as clients.
+ *
+ * @param {*} cb Callback
+ *
+ * @returns Return null if clients size is 0.
+ */
+const allConnected = cb => {
+  let len = clientLists.length
+
+  if (!len) {
+    return null
+  }
+
+  for (var i = 0; i < len; i++) {
+    if (clientLists[i].connectionState !== 'connected') {
+      continue
+    }
+
+    cb(clientLists[i])
+  }
+}
+
+/**
  * Find a client that id is 'id'.
  * @param {String} id Client ID
  */
@@ -277,13 +310,20 @@ const remove = id => {
 /**
  * Return all clients.
  */
-const clients = () => {
-  return clientLists
-}
+const clients = () => clientLists
+
+/**
+ * Return all connected clients.
+ */
+const clientsConnected = () =>
+  clientLists.filter(v => {
+    return v.connectionState === 'connected'
+  })
 
 module.exports = {
   RTCClient,
   clients,
+  clientsConnected,
   all,
   find,
   findOpposite,

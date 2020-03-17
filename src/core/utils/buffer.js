@@ -55,10 +55,21 @@ const objectToBSON = obj => BSON.serialize(obj)
 
 const BSONtoObject = bson => BSON.deserialize(bson)
 
-const concatBuffer = (buf1, buf2) => {
-  let result = new Uint8Array(buf1.byteLength + buf2.byteLength)
-  result.set(new Uint8Array(buf1), 0)
-  result.set(new Uint8Array(buf2), buf1.byteLength)
+const concatBuffer = (...bufs) => {
+  let len = bufs.length
+  let bytelen = bufs.reduce((p, c) => p.length + c.length)
+
+  let result = new Uint8Array(bytelen)
+
+  for (var i = 0; i < len; i++) {
+    let buf = bufs[i]
+
+    let tmp = new Uint8Array(result.byteLength + buf.byteLength)
+    tmp.set(result, 0)
+    tmp.set(new Uint8Array(buf), result.byteLength)
+
+    result = tmp
+  }
 
   return result.buffer
 }

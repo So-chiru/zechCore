@@ -31,6 +31,8 @@ class SignalClient {
     this.ws.onmessage = ev => __eventRun('message', ev)
     this.ws.onclose = ev => __eventRun('close', ev)
 
+    this.queue = []
+
     /**
      * Listening an event.
      *
@@ -45,6 +47,25 @@ class SignalClient {
       __events[event].push(cb)
     }
 
+    this.on('open', () => {
+      if (this.queue.length) {
+        let len = this.queue.length
+
+        for (var i = 0; i < len; i++) {
+          let obj = this.queue[i]
+
+          if (!obj || obj.d) {
+            continue
+          }
+
+          this.ws.send(obj.query)
+
+          this.queue.splice(i, 1)
+          i--
+        }
+      }
+    })
+
     /**
      * Default message command handler.
      */
@@ -53,9 +74,7 @@ class SignalClient {
 
       if (typeof ev.data === 'string' && ev.data[0] === '[') {
         data = JSON.parse(ev.data)
-      }
-
-      if (ev.data instanceof Blob) {
+      } else if (ev.data instanceof Blob) {
         data = new Uint8Array(await ev.data.arrayBuffer())
       }
 
@@ -63,13 +82,20 @@ class SignalClient {
         return
       }
 
+      // data[0] [ >> CMD_NUM <<, data... ]
       if (typeof data[0] === 'number') {
-        let objKeys = Object.keys(NETWORKING)
+        let objKeys = Object.keys(NETWORKING) // Command lists as key name
         for (var i = 0; i < objKeys.length; i++) {
           let e = NETWORKING[objKeys[i]]
 
           if (e == data[0]) {
-            __eventRun(NETWORKING[objKeys[i]], data.slice(1, data.length))
+            let slice = data.slice(1, data.length)
+
+            // FIXME : Not that good code, maybe.
+            __eventRun(
+              NETWORKING[objKeys[i]],
+              typeof slice[0] === 'object' && !slice[1] ? slice[0] : slice
+            )
           }
         }
       }
@@ -96,14 +122,36 @@ class SignalClient {
   }
 
   /**
+   *
+   * @param {*} data Data to send.
+   * @param {Boolean} fail This command should send at this time. (don't wait)
+   */
+  sendQue (data, fail) {
+    if (this.ws.readyState === WebSocket.CONNECTING && !fail) {
+      this.queue.push({ q: data, d: false })
+
+      return
+    }
+
+    this.ws.send(data)
+  }
+
+  /**
    * Send a command to server.
    *
    * @param {Number} ev NETWORKING Enum.
    * @param {*} data Data to send.
    * @param {Function} cb Callback (optional)
+   * @param {Object} option option object (optional)
    */
-  send (ev, data, cb) {
-    this.ws.send(makeCommand(ev, data))
+  send (ev, data, cb, option) {
+    let must = false
+
+    if (typeof option === 'object' && option.must) {
+      must = option.must
+    }
+
+    this.sendQue(makeCommand(ev, data), must)
 
     if (typeof cb === 'function') {
       this.on(ev, cb)
@@ -115,9 +163,16 @@ class SignalClient {
    *
    * @param {Number} ev NETWORKING Enum.
    * @param {Function} cb Callback (optional)
+   * @param {Object} option option object (optional)
    */
-  sendBinary (ev, cb) {
-    this.ws.send(buffer.makeBytes(1, ev))
+  sendBinary (ev, cb, option) {
+    let must = false
+
+    if (typeof option === 'object' && option.must) {
+      must = option.must
+    }
+
+    this.sendQue(buffer.makeBytes(1, ev))
 
     if (typeof cb === 'function') {
       this.on(ev, cb)
@@ -130,11 +185,18 @@ class SignalClient {
    * @param {Number} ev NETWORKING Enum.
    * @param {ArrayBuffer} data Data to send.
    * @param {Function} cb Callback (optional)
+   * @param {Object} option option object (optional)
    */
-  sendBinaryData (ev, data, cb) {
+  sendBinaryData (ev, data, cb, option) {
+    let must = false
+
+    if (typeof option === 'object' && option.must) {
+      must = option.must
+    }
+
     let concat = buffer.concatBuffer(buffer.makeBytes(1, ev), data)
 
-    this.ws.send(concat)
+    this.sendQue(concat)
 
     if (typeof cb === 'function') {
       this.on(ev, cb)
@@ -192,7 +254,7 @@ class SignalClient {
 
   sendICE (data, uuid, id) {
     this.sendBSON(NETWORKING.iceTransport, {
-      candidate: data,
+      c: data,
       to: uuid,
       fp: id
     })
