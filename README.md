@@ -29,6 +29,19 @@ Use `webpack` command to run.
 $ webpack --watch
 ```
 
+And you need the signaling server to make peers to connect each other. ([zechSignal](https://github.com/So-chiru/zechSignal))
+
+```sh
+$ git clone https://github.com/So-chiru/zechSignal
+$ cd zechSignal
+```
+
+Run signaling server with node command.
+
+```sh
+  node .
+```
+
 ## Contribution
 
-Every contribution are welcome! Please leave issues or Pull Requests if you found some error.
+Every kind of contributions are welcome! Please leave some issues or Pull Requests if you found errors.
