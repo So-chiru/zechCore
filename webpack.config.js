@@ -9,7 +9,7 @@ module.exports = {
   mode: dev ? 'development' : 'production',
   entry: {
     app: ['babel-polyfill', path.resolve('src', 'index.js')],
-    zechworker: [path.resolve('src', 'zech.core.sw.js')]
+    zechworker: ['babel-polyfill', path.resolve('src', 'zech.core.sw.js')]
   },
   output: {
     path: path.resolve(__dirname, '../proxy', 'statics')

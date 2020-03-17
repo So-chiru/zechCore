@@ -48,10 +48,15 @@ class SignalClient {
     /**
      * Default message command handler.
      */
-    this.on('message', ev => {
+    this.on('message', async ev => {
       let data
+
       if (typeof ev.data === 'string' && ev.data[0] === '[') {
         data = JSON.parse(ev.data)
+      }
+
+      if (ev.data instanceof Blob) {
+        data = new Uint8Array(await ev.data.arrayBuffer())
       }
 
       if (typeof data === 'undefined') {
@@ -64,7 +69,7 @@ class SignalClient {
           let e = NETWORKING[objKeys[i]]
 
           if (e == data[0]) {
-            __eventRun(NETWORKING[objKeys[i]], data[1])
+            __eventRun(NETWORKING[objKeys[i]], data.slice(1, data.length))
           }
         }
       }
@@ -137,6 +142,17 @@ class SignalClient {
   }
 
   /**
+   * Send a BSON data to server.
+   *
+   * @param {Number} ev NETWORKING Enum.
+   * @param {ArrayBuffer} data Data to send.
+   * @param {Function} cb Callback (optional)
+   */
+  sendBSON (ev, data, cb) {
+    return this.sendBinaryData(ev, buffer.objectToBSON(data), cb)
+  }
+
+  /**
    * Get peers lists from the server.
    *
    * @param {Object} options Peer query option.
@@ -158,27 +174,27 @@ class SignalClient {
   }
 
   sendOffer (data, uuid, id) {
-    this.send(NETWORKING.createPeerOffer, {
+    this.sendBSON(NETWORKING.createPeerOffer, {
       offer: data,
       to: uuid,
-      from_peer: id
+      fp: id
     })
   }
 
   sendAnswer (data, uuid, id, answer_peer) {
-    this.send(NETWORKING.answerPeerOffer, {
+    this.sendBSON(NETWORKING.answerPeerOffer, {
       answer: data,
       to: uuid,
-      from_peer: id,
+      fp: id,
       answer_peer
     })
   }
 
   sendICE (data, uuid, id) {
-    this.send(NETWORKING.iceTransport, {
+    this.sendBSON(NETWORKING.iceTransport, {
       candidate: data,
       to: uuid,
-      from_peer: id
+      fp: id
     })
   }
 

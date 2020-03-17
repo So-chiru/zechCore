@@ -1,3 +1,5 @@
+const BSON = require('bson')
+
 const makeBytes = (len, data) => {
   let buf = new ArrayBuffer(len)
   let uint8 = new Uint8Array(buf)
@@ -38,7 +40,7 @@ const stringHexConvert = str => {
   return final
 }
 
-const hexStringConvert = (bytes) => {
+const hexStringConvert = bytes => {
   let str = ''
 
   let len = bytes.length
@@ -48,6 +50,10 @@ const hexStringConvert = (bytes) => {
 
   return str
 }
+
+const objectToBSON = obj => BSON.serialize(obj)
+
+const BSONtoObject = bson => BSON.deserialize(bson)
 
 const concatBuffer = (buf1, buf2) => {
   let result = new Uint8Array(buf1.byteLength + buf2.byteLength)
@@ -61,5 +67,7 @@ module.exports = {
   makeBytes,
   stringHexConvert,
   hexStringConvert,
+  objectToBSON,
+  BSONtoObject,
   concatBuffer
 }

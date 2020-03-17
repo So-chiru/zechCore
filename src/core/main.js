@@ -2,7 +2,12 @@ const NETWORKING = require('./networking/enums')
 
 const SignalSocket = require('./networking/signalsocket')
 const RTCManager = require('./networking/webrtc')
+
+const block = require('./fs/block')
+const buffer = require('./utils/buffer')
+
 const log = require('./utils/logs')
+const sw = require('./serviceworker.js')
 
 if (DEBUG) {
   log('warn', `Debug mode has been activated. Do not use in production.`)
@@ -22,12 +27,8 @@ signalClient.on('open', async _ => {
       size: 10
     },
     async data => {
-      console.log(data)
-
       // FIXME : Test code
       let toPeer = data[0]
-
-      signalClient.requestMetadata('10f70afe44089b7e7ff5b7477da0f5e0d46e5de558a30b8e6a78226f42600b3d')
 
       if (!toPeer) return
 
@@ -42,36 +43,40 @@ signalClient.on('open', async _ => {
   )
 
   signalClient.on(NETWORKING.createPeerOffer, data => {
-    if (!data.offer || !data.to || !data.from) {
+    data = buffer.BSONtoObject(data)
+
+    if (!data.offer || !data.to || !data.fi) {
       return false
     }
 
     let rtcClient = new RTCManager.RTCClient()
-    rtcClient.registerOppositePeer(data.from_peer)
+    rtcClient.registerOppositePeer(data.fp)
 
     rtcClient.setRemoteDescription(data.offer).then(async () => {
       let answerText = await rtcClient.createAnswer()
       signalClient.sendAnswer(
         answerText,
-        data.from,
-        data.from_peer,
+        data.fi,
+        data.fp,
         rtcClient.id
       )
     })
 
     rtcClient.events.on('ice', iceData => {
-      signalClient.sendICE(iceData, data.from, rtcClient.id)
+      signalClient.sendICE(iceData, data.fi, rtcClient.id)
     })
 
-    log('debug', `Got an offer data from ${data.from_peer}`, data)
+    log('debug', `Got an offer data from ${data.fp}`, data)
   })
 
   signalClient.on(NETWORKING.answerPeerOffer, data => {
-    if (!data.answer || !data.to || !data.from) {
+    data = buffer.BSONtoObject(data)
+
+    if (!data.answer || !data.to || !data.fi) {
       return false
     }
 
-    let origin = RTCManager.find(data.from_peer)
+    let origin = RTCManager.find(data.fp)
     origin.registerOppositePeer(data.answer_peer)
 
     origin.setRemoteDescription(data.answer)
@@ -80,32 +85,33 @@ signalClient.on('open', async _ => {
   })
 
   signalClient.on(NETWORKING.iceTransport, data => {
-    if (!data.candidate || !data.from_peer) {
+    data = buffer.BSONtoObject(data)
+
+    if (!data.candidate || !data.fp) {
       return false
     }
 
-    log('debug', `Got a ICE data from opposite peer ${data.from_peer}`, data)
+    log('debug', `Got a ICE data from opposite peer ${data.fp}`, data)
 
-    let origin = RTCManager.findOpposite(data.from_peer)
+    let origin = RTCManager.findOpposite(data.fp)
     origin.addIceCandidate(data.candidate)
+  })
+
+  signalClient.on(NETWORKING.NoMetadata, () => {
+    // TODO : No metadata, then fetch from streaming server and report to the signal server.
   })
 
   signalClient.on('open', () => {
     log(`Peer ${this.oppositeId} connected.`)
   })
 })
-  
-;(() => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker
-      .register('/zechworker.js', {
-      })
-      .then(registration => {
-        log('debug', `zechCore ServiceWorker Registered.`)
-        console.log(registration)
-      })
-  }
 
+sw.workerEvent.on('message', data => {
+  if (data.cmd == sw.SWNETWORK.RequestFile) {
+    signalClient.requestMetadata(block.hash(data.url))
+  }
+})
+;(() => {
   setInterval(() => {
     document.querySelector(
       '.zech-clients'

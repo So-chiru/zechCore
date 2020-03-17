@@ -24,7 +24,7 @@ class RTCClient {
   }
 
   createClient () {
-    this.client = new RTCPeerConnection({
+    this.client = new (RTCPeerConnection || webkitRTCPeerConnection)({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
@@ -73,12 +73,7 @@ class RTCClient {
       }
 
       let commandBuf = buffer.makeBytes(1, NETWORKING.DATA)
-
-      let final = new Uint8Array(commandBuf.byteLength + data.byteLength)
-      final.set(new Uint8Array(commandBuf), 0)
-      final.set(new Uint8Array(data), commandBuf.byteLength)
-
-      channel.send(final.buffer)
+      channel.send(buffer.concatBuffer(commandBuf, data))
     }
 
     this.sendCommand = command => {
@@ -275,8 +270,6 @@ const remove = id => {
   }
 
   clientLists = clientLists.filter(e => e != null)
-
-  console.log(clientLists)
 
   return null
 }

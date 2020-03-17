@@ -7,6 +7,7 @@ module.exports = {
   GetPeerLists: 0xB0, // Signal Command
   GetUUID: 0xA0,
   RequestMetadata: 0xA1,
+  NoMetadata: 0xA2,
   createPeerOffer: 0xC1,
   answerPeerOffer: 0xC2,
   iceTransport: 0xC3,
