@@ -2,6 +2,7 @@ const NETWORKING = require('./networking/enums')
 
 const SignalSocket = require('./networking/signalsocket')
 const RTCManager = require('./networking/webrtc')
+const StateManager = require('./states')
 
 const block = require('./fs/block')
 const buffer = require('./utils/buffer')
@@ -15,6 +16,7 @@ if (DEBUG) {
 
 log(`zechCore v${VERSION}.`)
 
+let state = new StateManager.State()
 let signalClient = new SignalSocket()
 
 signalClient.on('open', async _ => {
@@ -39,6 +41,14 @@ signalClient.on('open', async _ => {
       rtcClient.events.on('ice', iceData => {
         signalClient.sendICE(iceData, toPeer, rtcClient.id)
       })
+
+      rtcClient.channelEvent.on('open', () => {
+        log(`Peer ${rtcClient.oppositeId} connected.`)
+      })
+
+      rtcClient.channelEvent.on('close', () => {
+        log(`Peer ${rtcClient.oppositeId} closed.`)
+      })
     }
   )
 
@@ -54,16 +64,19 @@ signalClient.on('open', async _ => {
 
     rtcClient.setRemoteDescription(data.offer).then(async () => {
       let answerText = await rtcClient.createAnswer()
-      signalClient.sendAnswer(
-        answerText,
-        data.fi,
-        data.fp,
-        rtcClient.id
-      )
+      signalClient.sendAnswer(answerText, data.fi, data.fp, rtcClient.id)
     })
 
     rtcClient.events.on('ice', iceData => {
       signalClient.sendICE(iceData, data.fi, rtcClient.id)
+    })
+
+    rtcClient.channelEvent.on('open', () => {
+      log(`Peer ${rtcClient.oppositeId} connected.`)
+    })
+
+    rtcClient.channelEvent.on('close', () => {
+      log(`Peer ${rtcClient.oppositeId} closed.`)
     })
 
     log('debug', `Got an offer data from ${data.fp}`, data)
@@ -100,10 +113,10 @@ signalClient.on('open', async _ => {
   signalClient.on(NETWORKING.NoMetadata, () => {
     // TODO : No metadata, then fetch from streaming server and report to the signal server.
   })
+})
 
-  signalClient.on('open', () => {
-    log(`Peer ${this.oppositeId} connected.`)
-  })
+state.stateEvent.on('change', v => {
+  sw.workerEvent.emit('sendMessage', { stateChange: v })
 })
 
 sw.workerEvent.on('message', data => {

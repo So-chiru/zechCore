@@ -1,4 +1,7 @@
 const SWNETWORK = require('./core/networking/sw_enums')
+const StateManager = require('./core/states')
+
+let state = 0x00
 
 self.addEventListener('install', ev => {
   self.skipWaiting()
@@ -11,7 +14,7 @@ self.addEventListener('activate', ev => {
 let savedClients = {}
 
 self.addEventListener('fetch', async ev => {
-  if (ev.request.url.indexOf('zech_core') == -1) return false
+  if (ev.request.url.indexOf('/hls') == -1) return false
 
   let client = await self.clients.get(ev.clientId)
   client.postMessage({
@@ -19,7 +22,33 @@ self.addEventListener('fetch', async ev => {
     url: ev.request.url
   })
 
-  return ev
+  if (state == StateManager.STATES.ACTIVE) {
+    return ev.respondWith(
+      fetch(ev.request.url)
+        .then(v => {
+          return v.arrayBuffer()
+        })
+        .then(v => {
+          // client.postMessage({
+          //   cmd: SWNETWORK.UploadFile,
+          //   url: ev.request.url
+          // })
+          // console.log(v)
+
+          let res = new Response(v)
+
+          return res
+        })
+    )
+  }
+
+  fetch(ev.request.url, {
+    method: 'HEAD'
+  }).then(v => {
+    if (v.headers.has('content-length')) {
+      console.log(v.headers.get('content-length'))
+    }
+  })
 })
 
 self.addEventListener('message', ev => {
@@ -34,4 +63,8 @@ self.addEventListener('message', ev => {
   }
 
   savedClients[ev.source.id].last = Date.now()
+
+  if (ev.data.cmd === SWNETWORK.StateChange) {
+    state = ev.data.stateChange
+  }
 })

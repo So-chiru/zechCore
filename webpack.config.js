@@ -12,7 +12,7 @@ module.exports = {
     zechworker: ['babel-polyfill', path.resolve('src', 'zech.core.sw.js')]
   },
   output: {
-    path: path.resolve(__dirname, '../proxy', 'statics')
+    path: path.resolve(__dirname, './dist', dev ? 'dev' : 'prod')
   },
   module: {
     rules: [

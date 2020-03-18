@@ -230,6 +230,13 @@ class SignalClient {
   GetUUID () {
     return new Promise((resolve, reject) => {
       this.sendBinary(NETWORKING.GetUUID, data => {
+        data = buffer.hexStringConvert(data).split('')
+        ;[8, 13, 18, 23].forEach(i => {
+          data.splice(i, 0, '-')
+        })
+
+        data = data.join('')
+
         resolve(data)
       })
     })

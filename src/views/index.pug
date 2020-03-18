@@ -2,11 +2,27 @@ html
   head
     title zech
     script(src="./app.js")
+    script(src="https://cdn.jsdelivr.net/npm/hls.js@latest")
   body
     h1 zechCore
     p A peer-to-peer Live Streaming framework using WebRTC.
     br
-    video(src="https://zech.live/test-url?zech_core")
+    video#video(controls width="500px")
     br
     p Clients : <span class="zech-clients">0</span>
     p Connected clients : <span class="zech-clients-connected">0</span>
+    script.
+      var video = document.getElementById('video');
+      if (Hls.isSupported()) {
+        var hls = new Hls();
+        hls.loadSource('/hls/index.m3u8');
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+          video.play();
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = '/hls/index.m3u8';
+        video.addEventListener('loadedmetadata', function() {
+          video.play();
+        });
+      }

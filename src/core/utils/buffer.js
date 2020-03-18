@@ -74,7 +74,12 @@ const concatBuffer = (...bufs) => {
   return result.buffer
 }
 
+const decode = buffer => {
+  return String.fromCharCode(...buffer)
+}
+
 module.exports = {
+  decode,
   makeBytes,
   stringHexConvert,
   hexStringConvert,

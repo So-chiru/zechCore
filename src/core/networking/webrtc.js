@@ -103,7 +103,6 @@ class RTCClient {
     }
 
     channel.onopen = ev => {
-      log(`Peer ${this.id}, data channel opened.`)
       this.channelEvent.emit('open', ev)
 
       clearTimeout(this.__reset)
@@ -123,13 +122,11 @@ class RTCClient {
     }
 
     channel.onclose = ev => {
-      log(`Peer ${this.id}, data channel closed.`)
+      this.channelEvent.emit('close', ev)
 
       if (pingInterval) {
         clearInterval(pingInterval)
       }
-
-      this.channelEvent.emit('close', ev)
     }
   }
 

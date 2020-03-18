@@ -13,4 +13,6 @@ module.exports = {
   iceTransport: 0xC3,
   RTCRequestBlock: 0xD0, // RTC Command
   RTCAnswerBlock: 0xD1,
+  RTCCheckBlock: 0xD2,
+  RTCCheckNeedBlock: 0xD3,
 }
