@@ -1,5 +1,6 @@
 const sha3 = require('js-sha3')
 
+const SIZE = 60000
 class Block {
   constructor (size) {
     this.size = size
@@ -30,15 +31,21 @@ class Block {
 }
 
 const size = length => {
-  return Math.ceil(length / 60000)
+  return Math.ceil(length / SIZE)
 }
 
 const hash = data => {
-  return sha3.sha3_256(data)
+  return sha3.cshake128(data, 128)
+}
+
+const hashBuffer = buf => {
+  return hash(buf)
 }
 
 module.exports = {
   Block,
   size,
-  hash
+  hash,
+  hashBuffer,
+  SIZE
 }

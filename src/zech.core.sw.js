@@ -14,41 +14,52 @@ self.addEventListener('activate', ev => {
 let savedClients = {}
 
 self.addEventListener('fetch', async ev => {
-  if (ev.request.url.indexOf('/hls') == -1) return false
+  if (
+    ev.request.url.indexOf('/hls/') == -1 ||
+    ev.request.url.indexOf('.m3u8') > -1
+  )
+    return ev
 
-  let client = await self.clients.get(ev.clientId)
-  client.postMessage({
-    cmd: SWNETWORK.RequestFile,
-    url: ev.request.url
-  })
+  ev.respondWith(
+    new Promise(async (resolve, reject) => {
+      let client = await self.clients.get(ev.clientId)
+      client.postMessage({
+        cmd: SWNETWORK.RequestFile,
+        url: ev.request.url
+      })
 
-  if (state == StateManager.STATES.ACTIVE) {
-    return ev.respondWith(
-      fetch(ev.request.url)
-        .then(v => {
-          return v.arrayBuffer()
+      if (state == StateManager.STATES.ACTIVE) {
+        resolve(
+          fetch(ev.request.url)
+            .then(v => {
+              return v.arrayBuffer()
+            })
+            .then(v => {
+              client.postMessage({
+                cmd: SWNETWORK.UploadFile,
+                url: ev.request.url,
+                buf: v
+              })
+
+              let res = new Response(v)
+
+              return res
+            })
+        )
+        return
+      }
+
+      resolve(
+        fetch(ev.request.url, {
+          method: 'HEAD'
+        }).then(v => {
+          if (v.headers.has('content-length')) {
+            console.log(v.headers.get('content-length'))
+          }
         })
-        .then(v => {
-          // client.postMessage({
-          //   cmd: SWNETWORK.UploadFile,
-          //   url: ev.request.url
-          // })
-          // console.log(v)
-
-          let res = new Response(v)
-
-          return res
-        })
-    )
-  }
-
-  fetch(ev.request.url, {
-    method: 'HEAD'
-  }).then(v => {
-    if (v.headers.has('content-length')) {
-      console.log(v.headers.get('content-length'))
-    }
-  })
+      )
+    })
+  )
 })
 
 self.addEventListener('message', ev => {

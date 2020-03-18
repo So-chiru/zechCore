@@ -5,6 +5,7 @@ const RTCManager = require('./networking/webrtc')
 const StateManager = require('./states')
 
 const block = require('./fs/block')
+const file = require('./fs/file')
 const buffer = require('./utils/buffer')
 
 const log = require('./utils/logs')
@@ -122,6 +123,13 @@ state.stateEvent.on('change', v => {
 sw.workerEvent.on('message', data => {
   if (data.cmd == sw.SWNETWORK.RequestFile) {
     signalClient.requestMetadata(block.hash(data.url))
+  } else if (data.cmd == sw.SWNETWORK.UploadFile) {
+
+    console.time('hh')
+    let hash = block.hashBuffer(data.buf)
+    console.timeEnd('hh')
+    let swFile = new file.File(hash)
+    swFile.from(data.buf)
   }
 })
 ;(() => {
