@@ -9,12 +9,18 @@ html
     br
     video#video(controls width="500px")
     br
-    p Clients : <span class="zech-clients">0</span>
-    p Connected clients : <span class="zech-clients-connected">0</span>
     script.
       var video = document.getElementById('video');
       if (Hls.isSupported()) {
-        var hls = new Hls();
+        var hls = new Hls({
+          maxBufferHole: 1,
+          maxBufferLength: 40,
+          maxMaxBufferLength: 60,
+          liveBackBufferLength: 30,
+          liveSyncDurationCount: 10,
+          liveMaxLatencyDurationCount: 20,
+          liveDurationInfinity: true,
+        });
         hls.loadSource('/hls/index.m3u8');
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, function() {

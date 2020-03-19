@@ -91,11 +91,15 @@ class SignalClient {
           if (e == data[0]) {
             let slice = data.slice(1, data.length)
 
+            data = undefined
+
             // FIXME : Not that good code, maybe.
             __eventRun(
               NETWORKING[objKeys[i]],
               typeof slice[0] === 'object' && !slice[1] ? slice[0] : slice
             )
+
+            return
           }
         }
       }
@@ -153,6 +157,8 @@ class SignalClient {
 
     this.sendQue(makeCommand(ev, data), must)
 
+    must = undefined
+
     if (typeof cb === 'function') {
       this.on(ev, cb)
     }
@@ -166,12 +172,6 @@ class SignalClient {
    * @param {Object} option option object (optional)
    */
   sendBinary (ev, cb, option) {
-    let must = false
-
-    if (typeof option === 'object' && option.must) {
-      must = option.must
-    }
-
     this.sendQue(buffer.makeBytes(1, ev))
 
     if (typeof cb === 'function') {
@@ -188,13 +188,8 @@ class SignalClient {
    * @param {Object} option option object (optional)
    */
   sendBinaryData (ev, data, cb, option) {
-    let must = false
-
-    if (typeof option === 'object' && option.must) {
-      must = option.must
-    }
-
     let concat = buffer.concatBuffer(buffer.makeBytes(1, ev), data)
+    data = undefined
 
     this.sendQue(concat)
 

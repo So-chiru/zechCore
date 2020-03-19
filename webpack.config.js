@@ -9,11 +9,10 @@ module.exports = {
   mode: dev ? 'development' : 'production',
   entry: {
     app: ['babel-polyfill', path.resolve('src', 'index.js')],
-    zechsw: ['babel-polyfill', path.resolve('src', 'zech.core.sw.js')],
-    zechworker: ['babel-polyfill', path.resolve('src', 'zech.core.worker.js')]
+    zechsw: ['babel-polyfill', path.resolve('src', 'zech.core.sw.js')]
   },
   output: {
-    path: path.resolve(__dirname, './dist', dev ? 'dev' : 'prod'),
+    path: path.resolve(__dirname, './dist', dev ? 'dev' : 'prod')
   },
   module: {
     rules: [
@@ -57,7 +56,7 @@ module.exports = {
   plugins: [
     new webpack.DefinePlugin({
       DEBUG: JSON.stringify(dev),
-      VERSION: JSON.stringify(require('./package.json').version),
+      VERSION: JSON.stringify(require('./package.json').version)
     }),
     new HtmlWebpackPlugin({
       template: './src/views/index.pug',

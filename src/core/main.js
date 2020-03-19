@@ -1,3 +1,5 @@
+'use strict'
+
 const NETWORKING = require('./networking/enums')
 
 const SignalSocket = require('./networking/signalsocket')
@@ -111,13 +113,17 @@ signalClient.on('open', async _ => {
     origin.addIceCandidate(data.c)
   })
 
-  signalClient.on(NETWORKING.NoMetadata, () => {
-    // TODO : No metadata, then fetch from streaming server and report to the signal server.
+  signalClient.on(NETWORKING.NoMetadata, data => {
+    sw.workerEvent.emit('sendMessage', 'NoMetadata', data)
+  })
+
+  signalClient.on(NETWORKING.RequestMetadata, data => {
+    console.log(data)
   })
 })
 
 state.stateEvent.on('change', v => {
-  sw.workerEvent.emit('sendMessage', { stateChange: v })
+  sw.workerEvent.emit('sendMessage', 'StateChange', v)
 })
 
 sw.workerEvent.on('message', async data => {
@@ -127,27 +133,19 @@ sw.workerEvent.on('message', async data => {
     let swFile = new file.File()
 
     await swFile.setHash(data.buf)
-    swFile.from(data.buf)
+    await swFile.from(data.buf)
 
-    signalClient.uploadMetadata(
-      data.url,
-      swFile.hash,
-      await swFile.blockDumpHash()
-    )
+    signalClient.uploadMetadata(data.url, swFile.hash, swFile.blockHashes)
+
+    setTimeout(() => {
+      swFile.remove()
+    }, 60000)
   }
-})
-;(() => {
-  setInterval(() => {
-    document.querySelector(
-      '.zech-clients'
-    ).innerHTML = RTCManager.clients().length
 
-    document.querySelector(
-      '.zech-clients-connected'
-    ).innerHTML = RTCManager.clientsConnected().length
-  }, 1000)
-})()
+  data = undefined
+})
 
 window.zechCore = {
-  signalClient
+  signalClient,
+  state
 }

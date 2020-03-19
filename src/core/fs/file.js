@@ -1,20 +1,15 @@
 const block = require('./block')
 const buffer = require('../utils/buffer')
-const worker = require('../worker.js')
 
 let filePool = {}
 
 class File {
   constructor (any) {
-    let hash = any
-
     this.blockLength = null
 
     this.blockHashes = []
     this.blocks = []
     this.done = false
-
-    this.hash = hash
 
     if (any instanceof ArrayBuffer) {
       this.setHash(any)
@@ -25,46 +20,50 @@ class File {
   }
 
   async setHash (buf) {
-    this.hash = block.hashBuffer(buf)
+    this.hash = block.hash(buf)
+
+    buf = undefined
   }
 
   validateHashes () {
-    return block.hashBuffer(buffer.concatBuffer(...this.blocks)) === this.hash
+    return block.hash(buffer.concatBuffer(...this.blocks)) === this.hash
   }
 
   from (buf) {
-    if (!(buf instanceof ArrayBuffer)) {
-      throw new Error(
-        `Argument buf should be ArrayBuffer, not ${
-          typeof buf === 'undefined' ? typeof buf : buf.constructor.name
-        }`
-      )
-    }
-
     this.blockLength = block.size(buf.byteLength)
 
     for (var i = 0; i < this.blockLength; i++) {
       let s = i * block.SIZE
+      let bufLen = buf.byteLength
 
       let blockSlice = buf.slice(
         s,
-        s + (buf.byteLength - s > block.SIZE ? block.SIZE : buf.byteLength - s)
+        s + (bufLen - s > block.SIZE ? block.SIZE : bufLen - s)
       )
 
-      this.addBlock(blockSlice)
+      bufLen = undefined
+
+      let blk = new block.Block(blockSlice.byteLength)
+      blk.buffer = blockSlice
+
+      blockSlice = undefined
+
+      this.addBlock(blk)
+
+      blk = undefined
     }
 
     this.blockDumpHash()
     this.done = this.validateHashes()
+
+    buf = undefined
   }
 
   async blockDumpHash () {
     let len = this.blocks.length
     for (var i = 0; i < len; i++) {
-      this.blockHashes[i] = block.hashBuffer(this.blocks[i])
+      this.blockHashes[i] = block.hash(this.blocks[i]._buf)
     }
-
-    return this.blockHashes
   }
 
   addBlock (block) {
@@ -78,9 +77,15 @@ class File {
 
     for (let i = 0; i < len; i++) {
       this.blocks[i].remove()
+      delete this.blocks[i]
     }
 
+    this.blocks = []
+
+    filePool[this.hash] = undefined
     delete filePool[this.hash]
+
+    this.hash = undefined
   }
 }
 

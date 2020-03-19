@@ -25,9 +25,12 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', ev => {
     workerEvent.emit('message', ev.data)
   })
-  
-  workerEvent.on('sendMessage', (msg) => {
-    navigator.serviceWorker.controller.postMessage(msg)
+
+  workerEvent.on('sendMessage', (cmd, msg) => {
+    navigator.serviceWorker.controller.postMessage({
+      cmd: SWNETWORK[cmd],
+      data: msg
+    })
   })
 }
 

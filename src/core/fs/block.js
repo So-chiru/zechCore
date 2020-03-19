@@ -4,21 +4,16 @@ const hasher = import('../../root/zechWASM')
 const SIZE = 60000
 
 let hashf = null
-
 hasher.then(hashing => {
-  console.log(hashing)
-  
   let hasher = new hashing.Sha3Hasher()
 
   hashf = chunk => {
-    let len = chunk.length
-    for (var i = 0; i < len; i++) {
-      hasher.update(chunk[i])
-    }
-
+    hasher.update(chunk)
+    chunk = undefined
     return hasher.hex_digest()
   }
 })
+
 class Block {
   constructor (size) {
     this.size = size
@@ -41,10 +36,21 @@ class Block {
 
     this._buf = buf
     this.hash = hash(buf)
+
+    buf = undefined
   }
 
   get buffer () {
     return this._buf
+  }
+
+  remove () {
+    this._buf = undefined
+    delete this._buf
+    
+    this.hash = undefined
+    this.corrupted = undefined
+    return
   }
 }
 
@@ -53,18 +59,21 @@ const size = length => {
 }
 
 const hash = data => {
-  //return sha3.cshake128(data, 128)
-  return hashf(data)
-}
+  if (data instanceof ArrayBuffer) {
+    data = new Uint8Array(data)
+  } else if (typeof data === 'string') {
+    data = data.split('').map(v => v.charCodeAt(0))
+  }
 
-const hashBuffer = buf => {
-  return hash(buf)
+  data = hashf(data)
+
+  return data
 }
 
 module.exports = {
   Block,
   size,
   hash,
-  hashBuffer,
+  hash,
   SIZE
 }
