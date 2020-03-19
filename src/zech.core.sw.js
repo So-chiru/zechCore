@@ -11,8 +11,6 @@ self.addEventListener('activate', ev => {
   ev.waitUntil(self.clients.claim())
 })
 
-let savedClients = {}
-
 self.addEventListener('fetch', async ev => {
   if (
     ev.request.url.indexOf('/hls/') == -1 ||
@@ -41,9 +39,7 @@ self.addEventListener('fetch', async ev => {
                 buf: v
               })
 
-              let res = new Response(v)
-
-              return res
+              return new Response(v)
             })
         )
         return
@@ -66,14 +62,6 @@ self.addEventListener('message', ev => {
   if (!ev.data) {
     return
   }
-
-  if (!savedClients[ev.source.id]) {
-    savedClients[ev.source.id] = {
-      last: Date.now()
-    }
-  }
-
-  savedClients[ev.source.id].last = Date.now()
 
   if (ev.data.cmd === SWNETWORK.StateChange) {
     state = ev.data.stateChange

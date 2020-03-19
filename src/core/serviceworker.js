@@ -2,14 +2,13 @@ const SWNETWORK = require('./networking/sw_enums')
 
 const eventBus = require('./utils/eventBus')
 
-const uuid = require('./utils/uuid')
 const log = require('./utils/logs')
 
 let workerEvent = new eventBus()
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker
-    .register('/dev/zechworker.js', {
+    .register('/dev/zechsw.js', {
       scope: '/dev/'
     })
     .then(registration => {

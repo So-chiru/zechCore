@@ -9,10 +9,11 @@ module.exports = {
   mode: dev ? 'development' : 'production',
   entry: {
     app: ['babel-polyfill', path.resolve('src', 'index.js')],
-    zechworker: ['babel-polyfill', path.resolve('src', 'zech.core.sw.js')]
+    zechsw: ['babel-polyfill', path.resolve('src', 'zech.core.sw.js')],
+    zechworker: ['babel-polyfill', path.resolve('src', 'zech.core.worker.js')]
   },
   output: {
-    path: path.resolve(__dirname, './dist', dev ? 'dev' : 'prod')
+    path: path.resolve(__dirname, './dist', dev ? 'dev' : 'prod'),
   },
   module: {
     rules: [

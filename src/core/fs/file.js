@@ -1,15 +1,35 @@
 const block = require('./block')
+const buffer = require('../utils/buffer')
+const worker = require('../worker.js')
 
 let filePool = {}
 
 class File {
-  constructor (hash) {
-    this.hash = hash
+  constructor (any) {
+    let hash = any
+
     this.blockLength = null
 
     this.blockHashes = []
     this.blocks = []
     this.done = false
+
+    this.hash = hash
+
+    if (any instanceof ArrayBuffer) {
+      this.setHash(any)
+      this.from(any)
+    }
+
+    filePool[this.hash] = this
+  }
+
+  async setHash (buf) {
+    this.hash = block.hashBuffer(buf)
+  }
+
+  validateHashes () {
+    return block.hashBuffer(buffer.concatBuffer(...this.blocks)) === this.hash
   }
 
   from (buf) {
@@ -34,14 +54,17 @@ class File {
       this.addBlock(blockSlice)
     }
 
-    // this.blockDumpHash()
+    this.blockDumpHash()
+    this.done = this.validateHashes()
   }
 
-  blockDumpHash () {
+  async blockDumpHash () {
     let len = this.blocks.length
     for (var i = 0; i < len; i++) {
       this.blockHashes[i] = block.hashBuffer(this.blocks[i])
     }
+
+    return this.blockHashes
   }
 
   addBlock (block) {

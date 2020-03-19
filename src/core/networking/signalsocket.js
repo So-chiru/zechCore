@@ -282,6 +282,10 @@ class SignalClient {
       )
     })
   }
+
+  uploadMetadata (url, hash, blocks) {
+    this.sendBSON(NETWORKING.uploadMetadata, { url, hash, blocks })
+  }
 }
 
 module.exports = SignalClient

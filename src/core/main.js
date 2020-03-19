@@ -120,16 +120,20 @@ state.stateEvent.on('change', v => {
   sw.workerEvent.emit('sendMessage', { stateChange: v })
 })
 
-sw.workerEvent.on('message', data => {
+sw.workerEvent.on('message', async data => {
   if (data.cmd == sw.SWNETWORK.RequestFile) {
     signalClient.requestMetadata(block.hash(data.url))
   } else if (data.cmd == sw.SWNETWORK.UploadFile) {
+    let swFile = new file.File()
 
-    console.time('hh')
-    let hash = block.hashBuffer(data.buf)
-    console.timeEnd('hh')
-    let swFile = new file.File(hash)
+    await swFile.setHash(data.buf)
     swFile.from(data.buf)
+
+    signalClient.uploadMetadata(
+      data.url,
+      swFile.hash,
+      await swFile.blockDumpHash()
+    )
   }
 })
 ;(() => {
