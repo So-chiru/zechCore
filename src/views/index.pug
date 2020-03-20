@@ -1,6 +1,8 @@
 html
   head
     title zech
+    meta(http-equiv="Content-Type", content="text/html;charset=UTF-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
     script(src="./app.js")
     script(src="https://cdn.jsdelivr.net/npm/hls.js@latest")
   body
@@ -9,6 +11,14 @@ html
     br
     video#video(controls width="500px")
     br
+    p Strategy option
+    form
+      input#zechstrategy0(type="radio" name="zechStrategy" onclick="zechCore.state.SetActive()" checked)
+      label(for="zechstrategy0" onclick="zechCore.state.SetActive()") Active
+      input#zechstrategy1(type="radio" name="zechStrategy" onclick="zechCore.state.SetCOOP()")
+      label(for="zechstrategy1" onclick="zechCore.state.SetCOOP()" ) Cooperate
+      input#zechstrategy2(type="radio" name="zechStrategy" onclick="zechCore.state.SetDepend()")
+      label(for="zechstrategy2" onclick="zechCore.state.SetDepend()" ) Depend
     script.
       var video = document.getElementById('video');
       if (Hls.isSupported()) {

@@ -22,13 +22,17 @@ self.addEventListener('fetch', async ev => {
   )
     return ev
 
+  let fetchTimer
+
   ev.respondWith(
     new Promise(async (resolve, reject) => {
       let client = await self.clients.get(ev.clientId)
 
-      console.log(state)
-
       let requestHTTP = () => {
+        if (fetchTimer) {
+          clearTimeout(fetchTimer)
+        }
+
         resolve(
           fetch(ev.request.url)
             .then(v => {
@@ -56,27 +60,23 @@ self.addEventListener('fetch', async ev => {
       ) {
         let hash = sha3.sha3_256(ev.request.url)
 
+        reqStore[hash] = h => {
+          requestHTTP()
+          delete reqStore[h]
+        }
+
+        fetchTimer = setTimeout(() => {
+          if (state == StateManager.STATES.DEPEND) {
+            throw new reject(`No peers available.`)
+          }
+
+          requestHTTP()
+        }, 4000)
+
         client.postMessage({
           cmd: SWNETWORK.RequestFile,
-          url: hash
+          hash
         })
-
-        reqStore[hash] = {
-          once: false,
-          fn: hash => {
-            if (reqStore[hash].once) {
-              requestHTTP()
-              delete reqStore[hash]
-            }
-
-            client.postMessage({
-              cmd: SWNETWORK.SubscribePeerWait,
-              url: hash
-            })
-
-            reqStore[hash].once = true
-          }
-        }
       }
 
       // resolve(

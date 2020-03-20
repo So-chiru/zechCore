@@ -15,7 +15,6 @@ class RTCClient {
     this.events = new eventBus()
     this.channelEvent = new eventBus()
 
-    this.__lastPing = Date.now()
     this.latency = 0
 
     this.addChannelEventListener()
@@ -34,8 +33,21 @@ class RTCClient {
   createClient () {
     this.client = new (RTCPeerConnection || webkitRTCPeerConnection)({
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        {
+          urls: [
+            'stun:74.125.204.127:19302'
+          ]
+        },
+        // {
+        //   url: 'turn:numb.viagenie.ca',
+        //   credential: 'muazkh',
+        //   username: 'webrtc@live.com'
+        // },
+        // {
+        //   url: 'turn:turn-pus.zech.live',
+        //   credential: 'zechliveapp',
+        //   username: 'zechlive'
+        // }
       ]
     })
     this.id = uuid()
@@ -52,8 +64,9 @@ class RTCClient {
     this.client.addIceCandidate(new RTCIceCandidate(candidate))
   }
 
-  registerOppositePeer (id) {
+  registerOppositePeer (id, sigId) {
     this.oppositeId = id
+    this.oppositeSignalId = sigId
   }
 
   createDataChannel (name) {
@@ -63,6 +76,7 @@ class RTCClient {
     })
 
     let pingInterval = null
+    let lastPing = null
 
     this.send = data => {
       if (channel.readyState !== 'open') {
@@ -94,7 +108,7 @@ class RTCClient {
     }
 
     this.ping = () => {
-      this.__lastPing = Date.now()
+      lastPing = Date.now()
       this.sendCommand(NETWORKING.PING)
     }
 
@@ -116,9 +130,26 @@ class RTCClient {
       this.send('hi')
     }
 
-    channel.onmessage = ev => {
+    channel.onmessage = async ev => {
+      let data = ev.data
+
+      if (data instanceof Blob) {
+        data = await data.arrayBuffer()
+      }
+
+      if (data instanceof ArrayBuffer) {
+        data = new Uint8Array(data)
+      }
+
+      if (data[0] === NETWORKING.PING) {
+        return this.pong()
+      } else if (data[0] === NETWORKING.PONG) {
+        this.latency = Date.now() - lastPing
+        return
+      }
+
       log('debug', `Got message through the data channel ${channel.label}.`, ev)
-      this.channelEvent.emit('data', ev.data)
+      this.channelEvent.emit('data', data)
     }
 
     channel.onclose = ev => {
@@ -174,23 +205,8 @@ class RTCClient {
     this.channelEvent.on('data', async data => {
       this.lastActive = Date.now()
 
-      if (typeof data === 'object') {
-        if (data.arrayBuffer) {
-          data = await data.arrayBuffer()
-        }
-
-        let view = new DataView(data)
-        let firstByte = view.getUint8(0)
-
-        if (firstByte == NETWORKING.PING) {
-          this.pong()
-          return
-        }
-
-        if (firstByte == NETWORKING.PONG) {
-          this.latency = Date.now() - this.__lastPing
-          return
-        }
+      if (data instanceof Uint8Array) {
+        let firstByte = data[0]
 
         let netKeys = Object.keys(NETWORKING)
         let netLen = netKeys.length
@@ -285,6 +301,22 @@ const findOpposite = id => {
 }
 
 /**
+ * Find a client that opposite side's id is 'id'.
+ * @param {String} id Opposite client ID
+ */
+const findOppositeSignal = id => {
+  let len = clientLists.length
+
+  for (var i = 0; i < len; i++) {
+    let client = clientLists[i]
+
+    if (client && client.oppositeSignalId === id) return client
+  }
+
+  return null
+}
+
+/**
  * Remove client from list.
  */
 const remove = id => {
@@ -324,5 +356,6 @@ module.exports = {
   all,
   find,
   findOpposite,
+  findOppositeSignal,
   remove
 }

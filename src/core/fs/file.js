@@ -14,19 +14,33 @@ class File {
     if (any instanceof ArrayBuffer) {
       this.setHash(any)
       this.from(any)
+    } else if (any) {
+      this.hash = any
+    }
+
+    if (!this.hash) {
+      throw new Error('Hash is not defined.')
     }
 
     filePool[this.hash] = this
   }
 
-  async setHash (buf) {
+  addHash (urlHash, hash, blocks) {
+    this.hash = blocks
+    this.blockHashes = blocks
+  }
+
+  setHash (buf) {
     this.hash = block.hash(buf)
 
     buf = undefined
   }
 
   validateHashes () {
-    return block.hash(buffer.concatBuffer(...this.blocks)) === this.hash
+    return (
+      block.hash(buffer.concatBuffer(...this.blocks.map(v => v._buf))) ===
+      this.hash
+    )
   }
 
   from (buf) {
@@ -46,17 +60,11 @@ class File {
       let blk = new block.Block(blockSlice.byteLength)
       blk.buffer = blockSlice
 
-      blockSlice = undefined
-
       this.addBlock(blk)
-
-      blk = undefined
     }
 
     this.blockDumpHash()
     this.done = this.validateHashes()
-
-    buf = undefined
   }
 
   async blockDumpHash () {
@@ -94,5 +102,6 @@ const get = id => {
 }
 
 module.exports = {
-  File
+  File,
+  get
 }

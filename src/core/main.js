@@ -6,12 +6,14 @@ const SignalSocket = require('./networking/signalsocket')
 const RTCManager = require('./networking/webrtc')
 const StateManager = require('./states')
 
-const block = require('./fs/block')
 const file = require('./fs/file')
+const transfer = require('./fs/transfer')
 const buffer = require('./utils/buffer')
 
 const log = require('./utils/logs')
 const sw = require('./serviceworker.js')
+
+const maxClients = 10
 
 if (DEBUG) {
   log('warn', `Debug mode has been activated. Do not use in production.`)
@@ -21,39 +23,39 @@ log(`zechCore v${VERSION}.`)
 
 let state = new StateManager.State()
 let signalClient = new SignalSocket()
+let makeClient = () => {}
 
 signalClient.on('open', async _ => {
   signalClient.uuid = await signalClient.GetUUID()
 
   log(`Got UUID from the server: ${signalClient.uuid}`)
 
-  signalClient.GetPeerLists(
-    {
-      size: 10
-    },
-    async data => {
-      // FIXME : Test code
-      let toPeer = data[0]
+  makeClient = async data => {
+    // FIXME : Test code
+    let toPeer = data[0]
 
-      if (!toPeer) return
+    if (!toPeer) return
 
-      let rtcClient = new RTCManager.RTCClient()
-      let offerText = await rtcClient.createOffer()
-      signalClient.sendOffer(offerText, toPeer, rtcClient.id)
+    let rtcClient = new RTCManager.RTCClient()
+    let offerText = await rtcClient.createOffer()
+    signalClient.sendOffer(offerText, toPeer, rtcClient.id)
 
-      rtcClient.events.on('ice', iceData => {
-        signalClient.sendICE(iceData, toPeer, rtcClient.id)
-      })
+    rtcClient.events.on('ice', iceData => {
+      signalClient.sendICE(iceData, toPeer, rtcClient.id)
+    })
 
-      rtcClient.channelEvent.on('open', () => {
-        log(`Peer ${rtcClient.oppositeId} connected.`)
-      })
+    rtcClient.channelEvent.on('open', () => {
+      log(`Peer ${rtcClient.oppositeId} connected.`)
+    })
 
-      rtcClient.channelEvent.on('close', () => {
-        log(`Peer ${rtcClient.oppositeId} closed.`)
-      })
-    }
-  )
+    rtcClient.channelEvent.on('close', () => {
+      log(`Peer ${rtcClient.oppositeId} closed.`)
+    })
+
+    rtcClient.channelEvent.on('data', data => {
+      transfer.rtcHandler(rtcClient, data)
+    })
+  }
 
   signalClient.on(NETWORKING.createPeerOffer, data => {
     data = buffer.BSONtoObject(data)
@@ -80,6 +82,10 @@ signalClient.on('open', async _ => {
 
     rtcClient.channelEvent.on('close', () => {
       log(`Peer ${rtcClient.oppositeId} closed.`)
+    })
+
+    rtcClient.channelEvent.on('data', data => {
+      transfer.rtcHandler(rtcClient, data)
     })
 
     log('debug', `Got an offer data from ${data.fp}`, data)
@@ -114,32 +120,61 @@ signalClient.on('open', async _ => {
   })
 
   signalClient.on(NETWORKING.NoMetadata, data => {
-    sw.workerEvent.emit('sendMessage', 'NoMetadata', data)
+    data = buffer.hexStringConvert(data)
+
+    sw.workerEvent.emit('sendMessage', sw.SWNETWORK.NoMetadata, data)
   })
 
   signalClient.on(NETWORKING.RequestMetadata, data => {
-    console.log(data)
+    data = buffer.BSONtoObject(data)
+
+    let hashFile = new file.File(data.urlh)
+    hashFile.addHash(data.h, data.blk)
+
+    if (RTCManager.clientsConnected().length < maxClients) {
+      let peers = data.peers
+      let len = peers.length
+
+      for (var i = 0; i < len; i++) {
+        makeClient(peers)
+      }
+    }
+
+    transfer.requestFile(data)
   })
 })
 
+sw.workerEvent.emit(
+  'sendMessage',
+  sw.SWNETWORK.StateChange,
+  StateManager.STATES.ACTIVE
+)
+
+sw.workerEvent.on(
+  'sendMessage',
+  (cmd, data) => {
+    if (cmd === sw.SWNETWORK.StateChange) {
+      document.querySelector('#zechstrategy' + data).checked = true
+    }
+  }
+)
+
 state.stateEvent.on('change', v => {
-  sw.workerEvent.emit('sendMessage', 'StateChange', v)
+  sw.workerEvent.emit('sendMessage', sw.SWNETWORK.StateChange, v)
 })
 
 sw.workerEvent.on('message', async data => {
   if (data.cmd == sw.SWNETWORK.RequestFile) {
-    signalClient.requestMetadata(block.hash(data.url))
+    signalClient.requestMetadata(data.hash)
   } else if (data.cmd == sw.SWNETWORK.UploadFile) {
-    let swFile = new file.File()
-
-    await swFile.setHash(data.buf)
-    await swFile.from(data.buf)
-
+    let swFile = new file.File(data.buf)
     signalClient.uploadMetadata(data.url, swFile.hash, swFile.blockHashes)
 
     setTimeout(() => {
       swFile.remove()
     }, 60000)
+  } else if (data.cmd == sw.SWNETWORK.SubscribePeerWait) {
+    signalClient.SubscribePeerWait(data.hash)
   }
 
   data = undefined
@@ -147,5 +182,6 @@ sw.workerEvent.on('message', async data => {
 
 window.zechCore = {
   signalClient,
+  maxClients,
   state
 }

@@ -111,6 +111,8 @@ class SignalClient {
 
     this.on('close', () => {
       clearInterval(pingInterval)
+
+      setTimeout(this.connect, 1000)
     })
 
     this.on(NETWORKING.ERROR, data => {
@@ -270,6 +272,22 @@ class SignalClient {
     return new Promise((resolve, reject) => {
       this.sendBinaryData(
         NETWORKING.RequestMetadata,
+        buffer.stringHexConvert(id),
+        data => {
+          resolve(data)
+        }
+      )
+    })
+  }
+
+  SubscribePeerWait(id) {
+    if (typeof id !== 'string' && id.length !== 64) {
+      throw new Error(`Not valid sha3 id.`)
+    }
+
+    return new Promise((resolve, reject) => {
+      this.sendBinaryData(
+        NETWORKING.SubscribePeerWait,
         buffer.stringHexConvert(id),
         data => {
           resolve(data)

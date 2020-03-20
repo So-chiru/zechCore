@@ -8,8 +8,8 @@ let workerEvent = new eventBus()
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker
-    .register('/dev/zechsw.js', {
-      scope: '/dev/'
+    .register('/zechsw.js', {
+      scope: '/'
     })
     .then(registration => {
       log('debug', `zechCore ServiceWorker Registered.`)
@@ -26,10 +26,10 @@ if ('serviceWorker' in navigator) {
     workerEvent.emit('message', ev.data)
   })
 
-  workerEvent.on('sendMessage', (cmd, msg) => {
+  workerEvent.on('sendMessage', (cmd, data) => {
     navigator.serviceWorker.controller.postMessage({
-      cmd: SWNETWORK[cmd],
-      data: msg
+      cmd,
+      data
     })
   })
 }
