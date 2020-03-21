@@ -7,13 +7,9 @@ const log = require('./utils/logs')
 let workerEvent = new eventBus()
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker
-    .register('/zechsw.js', {
-      scope: '/'
-    })
-    .then(registration => {
-      log('debug', `zechCore ServiceWorker Registered.`)
-    })
+  navigator.serviceWorker.register('./zechsw.js', {}).then(registration => {
+    log('debug', `zechCore ServiceWorker Registered.`)
+  })
 
   let alreadyRefreshing
   navigator.serviceWorker.addEventListener('controllerchange', () => {

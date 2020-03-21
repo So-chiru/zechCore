@@ -6,9 +6,10 @@ const sha3 = require('js-sha3')
 let state = 0x00
 
 let reqStore = {}
+let resStoreWorks = {}
 
 self.addEventListener('install', ev => {
-  self.skipWaiting()
+  ev.waitUntil(self.skipWaiting())
 })
 
 self.addEventListener('activate', ev => {
@@ -50,34 +51,44 @@ self.addEventListener('fetch', async ev => {
         )
       }
 
-      if (state == StateManager.STATES.ACTIVE) {
+      let hash = sha3.sha3_256(ev.request.url)
+
+      let storedBlocks = {}
+
+      reqStore[hash] = h => {
         requestHTTP()
+        delete reqStore[h]
 
-        return
-      } else if (
-        state == StateManager.STATES.COOP ||
-        state == StateManager.STATES.DEPEND
-      ) {
-        let hash = sha3.sha3_256(ev.request.url)
+        clearTimeout(fetchTimer)
+      }
 
-        reqStore[hash] = h => {
-          requestHTTP()
-          delete reqStore[h]
+      resStoreWorks[hash] = (block, num) => {
+        resolve(new Response(new Blob([buf])))
+
+        clearTimeout(fetchTimer)
+        delete resStoreWorks[hash]
+      }
+
+      fetchTimer = setTimeout(() => {
+        if (state == StateManager.STATES.DEPEND) {
+          throw new reject(`No peers available.`)
         }
 
-        fetchTimer = setTimeout(() => {
-          if (state == StateManager.STATES.DEPEND) {
-            throw new reject(`No peers available.`)
+        let keys = Object.keys(storedBlocks)
+        let keyl = keys.length
+        if (keyl) {
+          for (var i = 0; i < keyl; i++) {
+            let item = keys[i]
           }
+        }
 
-          requestHTTP()
-        }, 4000)
+        requestHTTP()
+      }, 5000)
 
-        client.postMessage({
-          cmd: SWNETWORK.RequestFile,
-          hash
-        })
-      }
+      client.postMessage({
+        cmd: SWNETWORK.RequestFile,
+        hash
+      })
 
       // resolve(
       //   fetch(ev.request.url, {
@@ -93,13 +104,16 @@ self.addEventListener('fetch', async ev => {
 })
 
 self.addEventListener('message', ev => {
-  if (!ev.data) {
+  let d = ev.data
+  if (!d) {
     return
   }
 
-  if (ev.data.cmd === SWNETWORK.StateChange) {
-    state = ev.data.data
-  } else if (ev.data.cmd === SWNETWORK.NoMetadata) {
-    reqStore[ev.data.data](ev.data.data)
+  if (d.cmd === SWNETWORK.StateChange) {
+    state = d.data
+  } else if (d.cmd === SWNETWORK.NoMetadata) {
+    reqStore[d.data](d.data)
+  } else if (d.cmd === SWNETWORK.DoneFile) {
+    resStoreWorks[d.data.url](d.data.block, d.data.num)
   }
 })

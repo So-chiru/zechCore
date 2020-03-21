@@ -1,4 +1,6 @@
 const NETWORKING = require('./enums')
+
+const log = require('../utils/logs')
 const buffer = require('../utils/buffer')
 
 const makeCommand = (cmd, data) => {
@@ -75,12 +77,14 @@ class SignalClient {
       if (typeof ev.data === 'string' && ev.data[0] === '[') {
         data = JSON.parse(ev.data)
       } else if (ev.data instanceof Blob) {
-        data = new Uint8Array(await ev.data.arrayBuffer())
+        data = new Uint8Array(await buffer.blobToArrayBuffer(ev.data))
       }
 
       if (typeof data === 'undefined') {
         return
       }
+
+      log('debug', 'got a signal message. ', data)
 
       // data[0] [ >> CMD_NUM <<, data... ]
       if (typeof data[0] === 'number') {
@@ -264,23 +268,24 @@ class SignalClient {
     })
   }
 
-  requestMetadata (id) {
+  requestMetadata (id, state) {
     if (typeof id !== 'string' && id.length !== 64) {
       throw new Error(`Not valid sha3 id.`)
     }
 
+    let cc = buffer.concatBuffer(
+      buffer.stringHexConvert(id),
+      buffer.makeBytes(1, state)
+    )
+
     return new Promise((resolve, reject) => {
-      this.sendBinaryData(
-        NETWORKING.RequestMetadata,
-        buffer.stringHexConvert(id),
-        data => {
-          resolve(data)
-        }
-      )
+      this.sendBinaryData(NETWORKING.RequestMetadata, cc, data => {
+        resolve(data)
+      })
     })
   }
 
-  SubscribePeerWait(id) {
+  SubscribePeerWait (id) {
     if (typeof id !== 'string' && id.length !== 64) {
       throw new Error(`Not valid sha3 id.`)
     }

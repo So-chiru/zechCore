@@ -10,10 +10,15 @@ const file = require('./fs/file')
 const transfer = require('./fs/transfer')
 const buffer = require('./utils/buffer')
 
+const block = require('./fs/block')
+const eventBus = require('./utils/eventBus')
+
 const log = require('./utils/logs')
 const sw = require('./serviceworker.js')
 
 const maxClients = 10
+
+let event = new eventBus()
 
 if (DEBUG) {
   log('warn', `Debug mode has been activated. Do not use in production.`)
@@ -30,12 +35,7 @@ signalClient.on('open', async _ => {
 
   log(`Got UUID from the server: ${signalClient.uuid}`)
 
-  makeClient = async data => {
-    // FIXME : Test code
-    let toPeer = data[0]
-
-    if (!toPeer) return
-
+  makeClient = async toPeer => {
     let rtcClient = new RTCManager.RTCClient()
     let offerText = await rtcClient.createOffer()
     signalClient.sendOffer(offerText, toPeer, rtcClient.id)
@@ -65,7 +65,8 @@ signalClient.on('open', async _ => {
     }
 
     let rtcClient = new RTCManager.RTCClient()
-    rtcClient.registerOppositePeer(data.fp)
+
+    rtcClient.registerOppositePeer(data.fp, data.fi)
 
     rtcClient.setRemoteDescription(data.offer).then(async () => {
       let answerText = await rtcClient.createAnswer()
@@ -99,7 +100,8 @@ signalClient.on('open', async _ => {
     }
 
     let origin = RTCManager.find(data.fp)
-    origin.registerOppositePeer(data.answer_peer)
+
+    origin.registerOppositePeer(data.answer_peer, data.fi)
 
     origin.setRemoteDescription(data.answer)
 
@@ -128,15 +130,26 @@ signalClient.on('open', async _ => {
   signalClient.on(NETWORKING.RequestMetadata, data => {
     data = buffer.BSONtoObject(data)
 
-    let hashFile = new file.File(data.urlh)
+    let hashFile = new file.File(data.h, data.urlh)
+
     hashFile.addHash(data.h, data.blk)
+
+    hashFile.onBlock = (block, num) => {
+      sw.workerEvent.emit('sendMessage', sw.SWNETWORK.DoneFile, {
+        url: data.urlh,
+        block,
+        num
+      })
+    }
 
     if (RTCManager.clientsConnected().length < maxClients) {
       let peers = data.peers
       let len = peers.length
 
       for (var i = 0; i < len; i++) {
-        makeClient(peers)
+        if (RTCManager.findOppositeSignal(peers[i])) continue
+
+        makeClient(peers[i])
       }
     }
 
@@ -150,14 +163,11 @@ sw.workerEvent.emit(
   StateManager.STATES.ACTIVE
 )
 
-sw.workerEvent.on(
-  'sendMessage',
-  (cmd, data) => {
-    if (cmd === sw.SWNETWORK.StateChange) {
-      document.querySelector('#zechstrategy' + data).checked = true
-    }
+sw.workerEvent.on('sendMessage', (cmd, data) => {
+  if (cmd === sw.SWNETWORK.StateChange) {
+    document.querySelector('#zechstrategy' + data).checked = true
   }
-)
+})
 
 state.stateEvent.on('change', v => {
   sw.workerEvent.emit('sendMessage', sw.SWNETWORK.StateChange, v)
@@ -165,9 +175,9 @@ state.stateEvent.on('change', v => {
 
 sw.workerEvent.on('message', async data => {
   if (data.cmd == sw.SWNETWORK.RequestFile) {
-    signalClient.requestMetadata(data.hash)
+    signalClient.requestMetadata(data.hash, state.state)
   } else if (data.cmd == sw.SWNETWORK.UploadFile) {
-    let swFile = new file.File(data.buf)
+    let swFile = new file.File(data.buf, block.hash(data.url))
     signalClient.uploadMetadata(data.url, swFile.hash, swFile.blockHashes)
 
     setTimeout(() => {
@@ -180,8 +190,16 @@ sw.workerEvent.on('message', async data => {
   data = undefined
 })
 
+setInterval(() => {
+  document.querySelector('#zechcls').innerHTML = RTCManager.clients().length
+  document.querySelector(
+    '#zechcccls'
+  ).innerHTML = RTCManager.clientsConnected().length
+}, 500)
+
 window.zechCore = {
   signalClient,
   maxClients,
-  state
+  state,
+  event
 }

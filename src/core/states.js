@@ -18,6 +18,10 @@ class State {
     this.stateEvent.emit('change', v)
   }
 
+  get state() {
+    return this._state
+  }
+
   SetActive () {
     this.state = STATES.ACTIVE
   }

@@ -3,9 +3,25 @@ const buffer = require('../utils/buffer')
 
 let filePool = {}
 
+const compareArray = (a, b) => {
+  return a.length === b.length && a.every((v, i) => b[i] === v)
+}
+
+const noEmpty = a => {
+  let l = a.length
+
+  for (var i = 0; i < l; i++) {
+    if (!a[i]) return false
+  }
+
+  return true
+}
+
 class File {
-  constructor (any) {
+  constructor (any, urlHash) {
     this.blockLength = null
+
+    this.urlHash = urlHash
 
     this.blockHashes = []
     this.blocks = []
@@ -22,11 +38,11 @@ class File {
       throw new Error('Hash is not defined.')
     }
 
-    filePool[this.hash] = this
+    filePool[urlHash] = this
   }
 
-  addHash (urlHash, hash, blocks) {
-    this.hash = blocks
+  addHash (hash, blocks) {
+    this.hash = hash
     this.blockHashes = blocks
   }
 
@@ -63,19 +79,40 @@ class File {
       this.addBlock(blk)
     }
 
-    this.blockDumpHash()
+    this.blockHashes = this.blockDumpHash()
     this.done = this.validateHashes()
   }
 
-  async blockDumpHash () {
+  blockDumpHash () {
     let len = this.blocks.length
+    let blk = []
+
     for (var i = 0; i < len; i++) {
-      this.blockHashes[i] = block.hash(this.blocks[i]._buf)
+      blk[i] = block.hash(this.blocks[i].buffer)
     }
+
+    return blk
   }
 
-  addBlock (block) {
-    this.blocks.push(block)
+  getBlock (block) {
+    return this.blocks[block]
+  }
+
+  addBlock (blk, index) {
+    if (typeof index === 'number') {
+      if (this.blockHashes[index] !== blk.hash) {
+        throw new Error('Block is invalid.')
+      }
+
+      this.blocks[index] = blk
+
+      if (this.onBlock) {
+        this.onBlock(this.blocks, index)
+      }
+      return
+    } else {
+      this.blocks.push(blk)
+    }
   }
 
   removeBlock (block) {}

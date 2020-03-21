@@ -79,12 +79,69 @@ const decode = buffer => {
   return String.fromCharCode(...buffer)
 }
 
+const blobToArrayBuffer = async data => {
+  if (data.arrayBuffer) {
+    return data.arrayBuffer()
+  }
+
+  return new Promise((resolve, reject) => {
+    var reader = new FileReader()
+    reader.onload = ev => {
+      resolve(ev.target.result)
+    }
+
+    reader.readAsArrayBuffer(data)
+  })
+}
+
+const randomBytes = n => {
+  if (n) {
+    let t = new ArrayBuffer(n)
+    let v = new Uint8Array(t)
+    while (n--) {
+      v[n] = randomBytes()
+    }
+
+    return t
+  }
+
+  return (Math.random() * 255) << 0
+}
+
+const numberBufferConvert = (num, len) => {
+  const v = new DataView(new ArrayBuffer(len))
+  for (var i = len - 1; i >= 0; --i) {
+    v.setUint8(i, num % 256)
+    num = num >> 8
+  }
+  return v.buffer
+}
+
+const bufferNumberConvert = buf => {
+  if (buf.byteLength == 2 && !buf[0]) {
+    return buf[1]
+  }
+
+  var v = new DataView(new ArrayBuffer(buf))
+  let num = 0
+
+  for (var i = v.byteLength - 1; i >= 0; --i) {
+    num += v.getUint8(i) << (8 * (v.byteLength - 1 - i))
+  }
+
+  return num
+}
+
 module.exports = {
   decode,
+  blobToArrayBuffer,
+  randomBytes,
   makeBytes,
   stringHexConvert,
   hexStringConvert,
   objectToBSON,
   BSONtoObject,
-  concatBuffer
+  concatBuffer,
+  numberBufferConvert,
+  bufferNumberConvert
 }

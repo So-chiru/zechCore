@@ -25,7 +25,7 @@ class RTCClient {
 
         log('error', `client ${this.id} timeout.`)
       }
-    }, 5000)
+    }, 10000)
 
     clientLists.push(this)
   }
@@ -34,24 +34,18 @@ class RTCClient {
     this.client = new (RTCPeerConnection || webkitRTCPeerConnection)({
       iceServers: [
         {
-          urls: [
-            'stun:74.125.204.127:19302'
-          ]
+          urls: ['stun:74.125.204.127:19302']
         },
-        // {
-        //   url: 'turn:numb.viagenie.ca',
-        //   credential: 'muazkh',
-        //   username: 'webrtc@live.com'
-        // },
-        // {
-        //   url: 'turn:turn-pus.zech.live',
-        //   credential: 'zechliveapp',
-        //   username: 'zechlive'
-        // }
+        {
+          urls: ['turn:175.114.141.247'],
+          credential: 'zechliveapp',
+          username: 'zechlive'
+        }
       ]
     })
     this.id = uuid()
     this.oppositeId = null
+    this.oppositeSignalId = null
 
     this.client.onicecandidate = ev => {
       if (ev.candidate) {
@@ -76,9 +70,11 @@ class RTCClient {
     })
 
     let pingInterval = null
+    let sendInterval = null
+    let sendCount = 0
     let lastPing = null
 
-    this.send = data => {
+    this.send = (cmd, data) => {
       if (channel.readyState !== 'open') {
         this.client.close()
         return
@@ -94,7 +90,7 @@ class RTCClient {
         data = buf
       }
 
-      let commandBuf = buffer.makeBytes(1, NETWORKING.DATA)
+      let commandBuf = buffer.makeBytes(1, cmd)
       channel.send(buffer.concatBuffer(commandBuf, data))
     }
 
@@ -127,14 +123,16 @@ class RTCClient {
         this.ping()
       }, 5000)
 
-      this.send('hi')
+      this.send(NETWORKING.DATA, 'hi')
     }
 
     channel.onmessage = async ev => {
       let data = ev.data
 
+      sendCount++
+
       if (data instanceof Blob) {
-        data = await data.arrayBuffer()
+        data = await buffer.blobToArrayBuffer(data)
       }
 
       if (data instanceof ArrayBuffer) {
@@ -159,6 +157,14 @@ class RTCClient {
         clearInterval(pingInterval)
       }
     }
+
+    sendInterval = setInterval(() => {
+      if (sendCount > 30) {
+        this.close()
+      }
+
+      sendCount = 0
+    }, 50)
   }
 
   createOffer () {
@@ -199,7 +205,7 @@ class RTCClient {
     })
 
     this.channelEvent.on('command', (command, data) => {
-      log(`Got a command ${command}`, data)
+      log('debug', `Got a command ${command}`, data)
     })
 
     this.channelEvent.on('data', async data => {
@@ -260,7 +266,10 @@ const allConnected = cb => {
   }
 
   for (var i = 0; i < len; i++) {
-    if (clientLists[i].connectionState !== 'connected') {
+    if (
+      !clientLists[i] ||
+      clientLists[i].client.connectionState !== 'connected'
+    ) {
       continue
     }
 
@@ -309,7 +318,6 @@ const findOppositeSignal = id => {
 
   for (var i = 0; i < len; i++) {
     let client = clientLists[i]
-
     if (client && client.oppositeSignalId === id) return client
   }
 
@@ -346,7 +354,7 @@ const clients = () => clientLists
  */
 const clientsConnected = () =>
   clientLists.filter(v => {
-    return v.connectionState === 'connected'
+    return v.client.connectionState === 'connected'
   })
 
 module.exports = {
@@ -354,6 +362,7 @@ module.exports = {
   clients,
   clientsConnected,
   all,
+  allConnected,
   find,
   findOpposite,
   findOppositeSignal,

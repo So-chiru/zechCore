@@ -19,12 +19,16 @@ html
       label(for="zechstrategy1" onclick="zechCore.state.SetCOOP()" ) Cooperate
       input#zechstrategy2(type="radio" name="zechStrategy" onclick="zechCore.state.SetDepend()")
       label(for="zechstrategy2" onclick="zechCore.state.SetDepend()" ) Depend
+    br
+    p All Clients <span id="zechcls"></span>
+    p Connected Clients <span id="zechcccls"></span>
+    
     script.
       var video = document.getElementById('video');
       if (Hls.isSupported()) {
         var hls = new Hls({
           maxBufferHole: 1,
-          maxBufferLength: 40,
+          maxBufferLength: 20,
           maxMaxBufferLength: 60,
           liveBackBufferLength: 30,
           liveSyncDurationCount: 10,

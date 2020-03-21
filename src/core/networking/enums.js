@@ -15,8 +15,9 @@ module.exports = {
   createPeerOffer: 0xC1,
   answerPeerOffer: 0xC2,
   iceTransport: 0xC3,
-  RTCAssignShortID: 0xD0,
+  RTCAssignShortID: 0xD0, // RTC Command
   RTCCheckBlock: 0xD1,
-  RTCRequestBlock: 0xD2, // RTC Command
+  RTCResponseNoBlock: 0xD2,
   RTCAnswerBlock: 0xD3,
+  RTCRequestBlock: 0xD4,
 }
