@@ -16,6 +16,7 @@ let requestDoneBlocks = {}
 let requestDone = {}
 let IdSentClients = {}
 let requestSentClients = {}
+let coolDown = {}
 
 const send = (id, block) => {
   let peer = rtc.find(id)
@@ -67,6 +68,15 @@ const fileTick = (fd, id, idstr, buf) => {
       continue
     }
 
+    if (
+      coolDown[cli.id + idstr + blocksWait[blocksWait.length - 1]] > Date.now()
+    ) {
+      continue
+    }
+
+    coolDown[cli.id + idstr + blocksWait[blocksWait.length - 1]] =
+      Date.now() + 50
+
     let toSent = blocksWait.pop()
     let blockNum = buffer.numberBufferConvert(toSent, 2)
 
@@ -79,9 +89,14 @@ const fileTick = (fd, id, idstr, buf) => {
   }
 }
 
+let lastRequest = 0
 const requestFile = fd => {
   if (fileTickStore[fd.urlh]) {
     return
+  }
+
+  if (lastRequest + 10 > Date.now()) {
+    throw new Error('Too fast request. slow down.')
   }
 
   let id = buffer.randomBytes(4)

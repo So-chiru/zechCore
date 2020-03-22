@@ -159,6 +159,15 @@ class RTCClient {
     }
 
     sendInterval = setInterval(() => {
+      if (
+        !this.client ||
+        this.client.connectionState == 'closed' ||
+        this.client.connectionState == 'disconnected'
+      ) {
+        remove(this.id)
+        return
+      }
+
       if (sendCount > 30) {
         this.close()
       }

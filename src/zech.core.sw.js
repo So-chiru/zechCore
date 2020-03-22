@@ -62,7 +62,13 @@ self.addEventListener('fetch', async ev => {
 
       requestStorage[hash] = {
         done: false,
-        gofetch: () => resolve(requestHTTP(ev.request.url, hash, client)),
+        gofetch: () => {
+          if (this.blocks) {
+            console.log(this.blocks)
+          }
+
+          resolve(requestHTTP(ev.request.url, hash, client))
+        },
         blocks: [],
         onblock: (block, num, hashes) => {
           requestStorage[hash].blocks[num] = block
@@ -90,11 +96,12 @@ self.addEventListener('fetch', async ev => {
         },
         timeout: setTimeout(
           () =>
-            !requestStorage[hash].done && state === StateManager.STATES.DEPEND
+            requestStorage[hash] &&
+            (!requestStorage[hash].done && state === StateManager.STATES.DEPEND
               ? requestStorage[hash].throwError('No Peers')
               : requestStorage[hash] &&
                 !requestStorage[hash].done &&
-                requestStorage[hash].gofetch(),
+                requestStorage[hash].gofetch()),
           4000
         )
       }

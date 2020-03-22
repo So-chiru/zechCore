@@ -1,7 +1,7 @@
 const sha3 = require('js-sha3')
 const hasher = import('../../root/zechWASM')
 
-const SIZE = 60000
+const SIZE = 30000
 
 let hashf = null
 hasher.then(hashing => {
