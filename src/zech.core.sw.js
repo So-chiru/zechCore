@@ -2,11 +2,19 @@ const SWNETWORK = require('./core/networking/sw_enums')
 const StateManager = require('./core/states')
 
 const sha3 = require('js-sha3')
+const { concatBuffer } = require('./core/utils/buffer')
+
+const noEmpty = a => {
+  let l = a.length
+
+  for (var i = 0; i < l; i++) {
+    if (!a[i]) return false
+  }
+
+  return true
+}
 
 let state = 0x00
-
-let reqStore = {}
-let resStoreWorks = {}
 
 self.addEventListener('install', ev => {
   ev.waitUntil(self.skipWaiting())
@@ -16,6 +24,29 @@ self.addEventListener('activate', ev => {
   ev.waitUntil(self.clients.claim())
 })
 
+const requestHTTP = (url, hash, client) =>
+  fetch(url)
+    .then(v => {
+      return v.arrayBuffer()
+    })
+    .then(v => {
+      client.postMessage({
+        cmd: SWNETWORK.UploadFile,
+        url: url,
+        buf: v
+      })
+
+      return new Response(v)
+    })
+
+const sendCommand = (cli, cmd, data) =>
+  cli.postMessage({
+    cmd,
+    ...data
+  })
+
+let requestStorage = {}
+
 self.addEventListener('fetch', async ev => {
   if (
     ev.request.url.indexOf('/hls/') == -1 ||
@@ -23,83 +54,69 @@ self.addEventListener('fetch', async ev => {
   )
     return ev
 
-  let fetchTimer
+  let hash = sha3.sha3_256(ev.request.url)
 
   ev.respondWith(
     new Promise(async (resolve, reject) => {
       let client = await self.clients.get(ev.clientId)
 
-      let requestHTTP = () => {
-        if (fetchTimer) {
-          clearTimeout(fetchTimer)
-        }
+      requestStorage[hash] = {
+        done: false,
+        gofetch: () => resolve(requestHTTP(ev.request.url, hash, client)),
+        blocks: [],
+        onblock: (block, num, hashes) => {
+          requestStorage[hash].blocks[num] = block
 
-        resolve(
-          fetch(ev.request.url)
-            .then(v => {
-              return v.arrayBuffer()
-            })
-            .then(v => {
-              client.postMessage({
-                cmd: SWNETWORK.UploadFile,
-                url: ev.request.url,
-                buf: v
-              })
+          if (
+            hashes.length === requestStorage[hash].blocks.length &&
+            noEmpty(requestStorage[hash].blocks)
+          ) {
+            requestStorage[hash].blockdone()
+          }
+        },
+        throwError: reason => {
+          reject({ status: 500, statusText: reason })
+        },
+        blockdone: () => {
+          let buf = concatBuffer(
+            ...requestStorage[hash].blocks.map(v => v._buf)
+          )
 
-              return new Response(v)
-            })
+          resolve(new Response(buf))
+
+          sendCommand(client, SWNETWORK.BlockDone, { hash })
+
+          requestStorage[hash].done = true
+        },
+        timeout: setTimeout(
+          () =>
+            !requestStorage[hash].done && state === StateManager.STATES.DEPEND
+              ? requestStorage[hash].throwError('No Peers')
+              : requestStorage[hash] &&
+                !requestStorage[hash].done &&
+                requestStorage[hash].gofetch(),
+          4000
         )
       }
 
-      let hash = sha3.sha3_256(ev.request.url)
-
-      let storedBlocks = {}
-
-      reqStore[hash] = h => {
-        requestHTTP()
-        delete reqStore[h]
-
-        clearTimeout(fetchTimer)
-      }
-
-      resStoreWorks[hash] = (block, num) => {
-        resolve(new Response(new Blob([buf])))
-
-        clearTimeout(fetchTimer)
-        delete resStoreWorks[hash]
-      }
-
-      fetchTimer = setTimeout(() => {
-        if (state == StateManager.STATES.DEPEND) {
-          throw new reject(`No peers available.`)
-        }
-
-        let keys = Object.keys(storedBlocks)
-        let keyl = keys.length
-        if (keyl) {
-          for (var i = 0; i < keyl; i++) {
-            let item = keys[i]
-          }
-        }
-
-        requestHTTP()
-      }, 5000)
-
-      client.postMessage({
-        cmd: SWNETWORK.RequestFile,
-        hash
-      })
-
-      // resolve(
-      //   fetch(ev.request.url, {
-      //     method: 'HEAD'
-      //   }).then(v => {
-      //     if (v.headers.has('content-length')) {
-      //       console.log(v.headers.get('content-length'))
-      //     }
-      //   })
-      // )
+      sendCommand(client, SWNETWORK.RequestFile, { hash })
     })
+      .finally(() => {
+        if (requestStorage[hash].timeout) {
+          clearTimeout(requestStorage[hash].timeout)
+        }
+
+        delete requestStorage[hash]
+      })
+      .then(async v => {
+        let client = await self.clients.get(ev.clientId)
+        sendCommand(client, SWNETWORK.DoneFile, { hash })
+
+        return v
+      })
+      .catch(res => {
+        return new Response(null, res)
+      })
   )
 })
 
@@ -109,11 +126,23 @@ self.addEventListener('message', ev => {
     return
   }
 
-  if (d.cmd === SWNETWORK.StateChange) {
-    state = d.data
-  } else if (d.cmd === SWNETWORK.NoMetadata) {
-    reqStore[d.data](d.data)
-  } else if (d.cmd === SWNETWORK.DoneFile) {
-    resStoreWorks[d.data.url](d.data.block, d.data.num)
+  switch (d.cmd) {
+    case SWNETWORK.StateChange:
+      state = d.data
+      break
+    case SWNETWORK.NoMetadata:
+      state === StateManager.STATES.DEPEND
+        ? requestStorage[d.data].throwError('No Peers')
+        : requestStorage[d.data] && requestStorage[d.data].gofetch(d.data)
+      break
+    case SWNETWORK.SendBlock:
+      requestStorage[d.data.url].onblock(
+        d.data.block,
+        d.data.num,
+        d.data.hashes
+      )
+      break
+    default:
+      console.log('unhandled log message: ' + d.cmd)
   }
 })

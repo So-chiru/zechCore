@@ -3,20 +3,6 @@ const buffer = require('../utils/buffer')
 
 let filePool = {}
 
-const compareArray = (a, b) => {
-  return a.length === b.length && a.every((v, i) => b[i] === v)
-}
-
-const noEmpty = a => {
-  let l = a.length
-
-  for (var i = 0; i < l; i++) {
-    if (!a[i]) return false
-  }
-
-  return true
-}
-
 class File {
   constructor (any, urlHash) {
     this.blockLength = null
@@ -107,8 +93,9 @@ class File {
       this.blocks[index] = blk
 
       if (this.onBlock) {
-        this.onBlock(this.blocks, index)
+        this.onBlock(blk, index, this.blockHashes)
       }
+
       return
     } else {
       this.blocks.push(blk)

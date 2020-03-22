@@ -6,6 +6,8 @@ const NETWORKING = require('../networking/enums')
 
 const buffer = require('../utils/buffer')
 
+const sw = require('../serviceworker')
+
 let nameStorage = {}
 let fileTickStore = {}
 
@@ -31,7 +33,11 @@ const fileTick = (fd, id, idstr, buf) => {
 
   let blocksWait = [
     ...Array.from(Array(fd.blk.length).keys()).filter(v => {
-      return !requestDone && !requestDoneBlocks[idstr + v] && !requestSentBlocks[idstr + v]
+      return (
+        !requestDone[idstr] &&
+        !requestDoneBlocks[idstr + v] &&
+        !requestSentBlocks[idstr + v]
+      )
     })
   ]
 
@@ -86,6 +92,12 @@ const requestFile = fd => {
     fileTick(fd, id, buffer.hexStringConvert(new Uint8Array(id)), buf)
   }, 10)
 }
+
+sw.workerEvent.on('message', data => {
+  if (data && data.cmd === sw.SWNETWORK.DoneFile && fileTickStore[data.hash]) {
+    clearInterval(fileTickStore[data.hash])
+  }
+})
 
 const rtcHandler = (client, data) => {
   if (data[0] === NETWORKING.RTCAssignShortID) {

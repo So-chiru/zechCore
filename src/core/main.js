@@ -127,26 +127,29 @@ signalClient.on('open', async _ => {
     sw.workerEvent.emit('sendMessage', sw.SWNETWORK.NoMetadata, data)
   })
 
-  signalClient.on(NETWORKING.RequestMetadata, data => {
+  signalClient.on(NETWORKING.SendMetadata, data => {
     data = buffer.BSONtoObject(data)
 
     let hashFile = new file.File(data.h, data.urlh)
-
     hashFile.addHash(data.h, data.blk)
-
-    hashFile.onBlock = (block, num) => {
-      sw.workerEvent.emit('sendMessage', sw.SWNETWORK.DoneFile, {
+    hashFile.onBlock = (block, num, hashes) => {
+      sw.workerEvent.emit('sendMessage', sw.SWNETWORK.SendBlock, {
         url: data.urlh,
         block,
-        num
+        num,
+        hashes
       })
+    }
+
+    if (!data.peers.length) {
+      sw.workerEvent.emit('sendMessage', sw.SWNETWORK.NoMetadata, data.urlh)
+      return
     }
 
     if (RTCManager.clientsConnected().length < maxClients) {
       let peers = data.peers
-      let len = peers.length
 
-      for (var i = 0; i < len; i++) {
+      for (var i = 0; i < peers.length; i++) {
         if (RTCManager.findOppositeSignal(peers[i])) continue
 
         makeClient(peers[i])
@@ -175,6 +178,12 @@ state.stateEvent.on('change', v => {
 
 sw.workerEvent.on('message', async data => {
   if (data.cmd == sw.SWNETWORK.RequestFile) {
+    if (!signalClient.connected()) {
+      sw.workerEvent.emit('sendMessage', sw.SWNETWORK.NoMetadata, data.hash)
+
+      return
+    }
+
     signalClient.requestMetadata(data.hash, state.state)
   } else if (data.cmd == sw.SWNETWORK.UploadFile) {
     let swFile = new file.File(data.buf, block.hash(data.url))
@@ -183,8 +192,8 @@ sw.workerEvent.on('message', async data => {
     setTimeout(() => {
       swFile.remove()
     }, 60000)
-  } else if (data.cmd == sw.SWNETWORK.SubscribePeerWait) {
-    signalClient.SubscribePeerWait(data.hash)
+  } else if (data.cmd === sw.SWNETWORK.BlockDone) {
+    signalClient.notifyBlockDone(data.hash)
   }
 
   data = undefined
